@@ -1,42 +1,47 @@
 /**
  * Root Navigation Structure
- * Bottom tab navigation with Home and Articles screens
+ * 5-tab bottom navigation: Folders, Tags, +Add, Library, Settings
  */
 
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
-import ArticlesScreen from '../screens/ArticlesScreen';
+import LibraryScreen from '../screens/LibraryScreen';
 import ArticleDetailScreen from '../screens/ArticleDetailScreen';
+import FoldersScreen from '../screens/FoldersScreen';
+import TagsScreen from '../screens/TagsScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import { colors } from '../styles/theme';
+import { useTheme } from '../context/ThemeContext';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 /**
- * Simple icon component using text
+ * Tab icon component - Returns just the emoji icon
  */
-const TabIcon = ({ label }: { label: string }) => (
-  <Text style={{ fontSize: 20, marginBottom: 4 }}>{label}</Text>
+const TabIcon = ({ icon }: { icon: string }) => (
+  <Text style={{ fontSize: 24 }}>{icon}</Text>
 );
 
 /**
- * Articles Stack Navigator
- * Handles Articles list and detail view
+ * Library Stack Navigator
+ * Handles Library list and detail view
  */
-function ArticlesStackNavigator() {
+function LibraryStackNavigator() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
       <Stack.Screen
-        name="ArticlesList"
-        component={ArticlesScreen}
-        options={{
-          title: 'Saved Articles',
-          headerShown: true,
-        }}
+        name="LibraryList"
+        component={LibraryScreen}
       />
       <Stack.Screen
         name="ArticleDetail"
@@ -51,19 +56,19 @@ function ArticlesStackNavigator() {
 }
 
 /**
- * Home Stack Navigator
- * Handles Home screen with share intent
+ * Add Article Stack Navigator
+ * Handles adding articles via share intent
  */
-function HomeStackNavigator() {
+function AddStackNavigator() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
       <Stack.Screen
-        name="HomeScreen"
+        name="AddArticle"
         component={HomeScreen}
-        options={{
-          title: 'InstaChat',
-          headerShown: true,
-        }}
       />
     </Stack.Navigator>
   );
@@ -71,31 +76,68 @@ function HomeStackNavigator() {
 
 /**
  * Bottom Tab Navigator
- * Main navigation structure
+ * 5-tab main navigation structure
  */
 export function RootNavigator() {
+  const { getColors } = useTheme();
+  const currentColors = getColors();
+
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: '#2196f3',
-        tabBarInactiveTintColor: '#999',
+        tabBarActiveTintColor: currentColors.primary,
+        tabBarInactiveTintColor: currentColors.textSecondary,
         headerShown: false,
+        tabBarStyle: {
+          backgroundColor: currentColors.surface,
+          borderTopColor: currentColors.border,
+          borderTopWidth: 1,
+        },
       }}
     >
       <Tab.Screen
-        name="Home"
-        component={HomeStackNavigator}
+        name="Folders"
+        component={FoldersScreen}
         options={{
-          title: 'Share',
-          tabBarLabel: 'Share',
+          title: 'Folders',
+          tabBarLabel: 'Folders',
+          tabBarIcon: () => <TabIcon icon="📁" />,
         }}
       />
       <Tab.Screen
-        name="Articles"
-        component={ArticlesStackNavigator}
+        name="Tags"
+        component={TagsScreen}
         options={{
-          title: 'Articles',
-          tabBarLabel: 'Saved',
+          title: 'Tags',
+          tabBarLabel: 'Tags',
+          tabBarIcon: () => <TabIcon icon="🏷️" />,
+        }}
+      />
+      <Tab.Screen
+        name="Add"
+        component={AddStackNavigator}
+        options={{
+          title: 'Add',
+          tabBarLabel: 'Add',
+          tabBarIcon: () => <TabIcon icon="➕" />,
+        }}
+      />
+      <Tab.Screen
+        name="Library"
+        component={LibraryStackNavigator}
+        options={{
+          title: 'Library',
+          tabBarLabel: 'Library',
+          tabBarIcon: () => <TabIcon icon="📚" />,
+        }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          title: 'Settings',
+          tabBarLabel: 'Settings',
+          tabBarIcon: () => <TabIcon icon="⚙️" />,
         }}
       />
     </Tab.Navigator>

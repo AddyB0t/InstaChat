@@ -18,10 +18,15 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { extractAndCreateArticle } from '../services/articleExtractor';
 import { saveArticle, getArticleCount } from '../services/database';
+import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
+import { useTheme } from '../context/ThemeContext';
 
 const { SharedIntentModule } = NativeModules;
 
 export default function HomeScreen({ navigation }: any) {
+  const { getColors, getFontSize, settings } = useTheme();
+  const currentColors = getColors();
+  const fontSizeStyle = (size: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | 'xxl') => ({ fontSize: getFontSize(size), fontFamily: settings.fontFamily === 'serif' ? 'serif' : 'sans-serif' });
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -120,25 +125,25 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.header}>
+    <ScrollView style={[styles.container, { backgroundColor: currentColors.background }]} contentContainerStyle={styles.scrollContent}>
+      <View style={[styles.header, { borderBottomColor: currentColors.primary }]}>
         <Text style={styles.headerEmoji}>↗️</Text>
-        <Text style={styles.title}>InstaChat</Text>
-        <Text style={styles.subtitle}>Share articles to read later</Text>
+        <Text style={[styles.title, { color: currentColors.text }]}>InstaChat</Text>
+        <Text style={[styles.subtitle, { color: currentColors.textSecondary }]}>Share articles to read later</Text>
       </View>
 
       {sharedUrl ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Received URL:</Text>
-          <View style={styles.urlBox}>
-            <Text style={styles.urlText} numberOfLines={3}>
+        <View style={[styles.section, { backgroundColor: currentColors.surfaceLight, borderColor: currentColors.border }]}>
+          <Text style={[styles.sectionTitle, { color: currentColors.text }]}>Received URL:</Text>
+          <View style={[styles.urlBox, { backgroundColor: currentColors.surface, borderLeftColor: currentColors.primary }]}>
+            <Text style={[styles.urlText, { color: currentColors.primaryLight }]} numberOfLines={3}>
               {sharedUrl}
             </Text>
           </View>
 
           {!isSaved && (
             <TouchableOpacity
-              style={[styles.button, isLoading && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: currentColors.primary }, isLoading && styles.buttonDisabled]}
               onPress={handleSaveArticle}
               disabled={isLoading}
             >
@@ -157,41 +162,41 @@ export default function HomeScreen({ navigation }: any) {
           )}
 
           {isSaved && (
-            <View style={styles.savedBox}>
+            <View style={[styles.savedBox, { backgroundColor: currentColors.surface, borderLeftColor: currentColors.success }]}>
               <Text style={styles.savedEmoji}>✓</Text>
-              <Text style={styles.savedText}>Article saved successfully!</Text>
+              <Text style={[styles.savedText, { color: currentColors.success }]}>Article saved successfully!</Text>
             </View>
           )}
 
-          <TouchableOpacity style={styles.buttonSecondary} onPress={handleClearUrl}>
+          <TouchableOpacity style={[styles.buttonSecondary, { borderColor: currentColors.primary }]} onPress={handleClearUrl}>
             <Text style={styles.buttonEmoji}>✕</Text>
-            <Text style={styles.buttonSecondaryText}>Clear URL</Text>
+            <Text style={[styles.buttonSecondaryText, { color: currentColors.primary }]}>Clear URL</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: currentColors.surfaceLight, borderColor: currentColors.border }]}>
           <Text style={styles.emptyEmoji}>📥</Text>
-          <Text style={styles.sectionTitle}>Ready to receive shares</Text>
-          <Text style={styles.instructionText}>
+          <Text style={[styles.sectionTitle, { color: currentColors.text }]}>Ready to receive shares</Text>
+          <Text style={[styles.instructionText, { color: currentColors.textSecondary }]}>
             Share a URL from Chrome, Safari, or any other app to save it here for reading later.
           </Text>
         </View>
       )}
 
       <View style={styles.statsSection}>
-        <View style={styles.statCard}>
+        <View style={[styles.statCard, { backgroundColor: currentColors.surfaceLight, borderColor: currentColors.border }]}>
           <Text style={styles.statEmoji}>📚</Text>
-          <Text style={styles.statNumber}>{articleCount}</Text>
-          <Text style={styles.statLabel}>Articles Saved</Text>
+          <Text style={[styles.statNumber, { color: currentColors.primary }]}>{articleCount}</Text>
+          <Text style={[styles.statLabel, { color: currentColors.textSecondary }]}>Articles Saved</Text>
         </View>
       </View>
 
-      <View style={styles.infoSection}>
-        <Text style={styles.infoTitle}>How it works:</Text>
-        <Text style={styles.infoText}>1. Share a URL from any app</Text>
-        <Text style={styles.infoText}>2. InstaChat extracts the article content</Text>
-        <Text style={styles.infoText}>3. Your article is saved for reading later</Text>
-        <Text style={styles.infoText}>4. Access your collection anytime</Text>
+      <View style={[styles.infoSection, { backgroundColor: currentColors.surface, borderLeftColor: currentColors.warning }]}>
+        <Text style={[styles.infoTitle, { color: currentColors.text }]}>How it works:</Text>
+        <Text style={[styles.infoText, { color: currentColors.textSecondary }]}>1. Share a URL from any app</Text>
+        <Text style={[styles.infoText, { color: currentColors.textSecondary }]}>2. InstaChat extracts the article content</Text>
+        <Text style={[styles.infoText, { color: currentColors.textSecondary }]}>3. Your article is saved for reading later</Text>
+        <Text style={[styles.infoText, { color: currentColors.textSecondary }]}>4. Access your collection anytime</Text>
       </View>
     </ScrollView>
   );
@@ -200,177 +205,181 @@ export default function HomeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.dark.background,
   },
   scrollContent: {
-    padding: 20,
+    padding: spacing.md,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
-    paddingBottom: 20,
+    marginBottom: spacing.xxl,
+    paddingBottom: spacing.lg,
     borderBottomWidth: 2,
-    borderBottomColor: '#2196f3',
+    borderBottomColor: colors.dark.primary,
   },
   headerEmoji: {
     fontSize: 40,
-    marginBottom: 10,
+    marginBottom: spacing.md,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 10,
+    fontSize: fontSize.xxxl,
+    fontWeight: fontWeight.bold,
+    color: colors.dark.text,
+    marginTop: spacing.md,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
+    fontSize: fontSize.sm,
+    color: colors.dark.textSecondary,
+    marginTop: spacing.sm,
   },
   section: {
-    marginBottom: 30,
-    padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    elevation: 2,
+    marginBottom: spacing.xxl,
+    padding: spacing.lg,
+    backgroundColor: colors.dark.surfaceLight,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.dark.border,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
+    color: colors.dark.text,
+    marginBottom: spacing.md,
   },
   urlBox: {
-    padding: 12,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 6,
+    padding: spacing.md,
+    backgroundColor: colors.dark.surface,
+    borderRadius: borderRadius.md,
     borderLeftWidth: 4,
-    borderLeftColor: '#2196f3',
-    marginBottom: 16,
+    borderLeftColor: colors.dark.primary,
+    marginBottom: spacing.lg,
   },
   urlText: {
-    fontSize: 13,
-    color: '#1976d2',
+    fontSize: fontSize.sm,
+    color: colors.dark.primaryLight,
     fontFamily: 'monospace',
     lineHeight: 18,
   },
   button: {
-    backgroundColor: '#2196f3',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 6,
+    backgroundColor: colors.dark.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
     elevation: 2,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonIcon: {
-    marginRight: 8,
+    marginRight: spacing.md,
   },
   buttonEmoji: {
-    fontSize: 18,
-    marginRight: 8,
+    fontSize: fontSize.lg,
+    marginRight: spacing.md,
   },
   buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
   },
   buttonSecondary: {
-    borderWidth: 1,
-    borderColor: '#2196f3',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.dark.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonSecondaryText: {
-    color: '#2196f3',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.dark.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
   },
   savedBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#e8f5e9',
-    borderRadius: 6,
-    marginBottom: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.dark.surface,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.dark.success,
   },
   savedEmoji: {
-    fontSize: 20,
-    marginRight: 8,
+    fontSize: fontSize.lg,
+    marginRight: spacing.md,
   },
   savedText: {
-    fontSize: 14,
-    color: '#2e7d32',
-    fontWeight: '600',
-    marginLeft: 8,
+    fontSize: fontSize.sm,
+    color: colors.dark.success,
+    fontWeight: fontWeight.semibold,
+    marginLeft: spacing.md,
   },
   emptyEmoji: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
     opacity: 0.5,
   },
   instructionText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: fontSize.sm,
+    color: colors.dark.textSecondary,
     lineHeight: 20,
-    marginTop: 12,
+    marginTop: spacing.md,
   },
   statsSection: {
-    marginBottom: 30,
+    marginBottom: spacing.xxl,
   },
   statCard: {
-    backgroundColor: '#fff',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    backgroundColor: colors.dark.surfaceLight,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.dark.border,
   },
   statEmoji: {
     fontSize: 32,
-    marginBottom: 8,
+    marginBottom: spacing.md,
   },
   statNumber: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#2196f3',
-    marginTop: 8,
+    fontSize: fontSize.xxxl,
+    fontWeight: fontWeight.bold,
+    color: colors.dark.primary,
+    marginTop: spacing.md,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
+    fontSize: fontSize.xs,
+    color: colors.dark.textSecondary,
+    marginTop: spacing.sm,
   },
   infoSection: {
-    paddingHorizontal: 12,
-    paddingVertical: 16,
-    backgroundColor: '#fff9e6',
-    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.dark.surface,
+    borderRadius: borderRadius.md,
     borderLeftWidth: 4,
-    borderLeftColor: '#ff9800',
-    marginBottom: 20,
+    borderLeftColor: colors.dark.warning,
+    marginBottom: spacing.lg,
   },
   infoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.dark.text,
+    marginBottom: spacing.md,
   },
   infoText: {
-    fontSize: 13,
-    color: '#666',
-    marginLeft: 16,
-    marginBottom: 6,
+    fontSize: fontSize.xs,
+    color: colors.dark.textSecondary,
+    marginLeft: spacing.lg,
+    marginBottom: spacing.sm,
     lineHeight: 18,
   },
 });

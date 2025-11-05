@@ -15,9 +15,37 @@ export interface Article {
   savedAt: string;
   summary?: string;
   imageUrl?: string;
+  folderId?: string;
+  tags?: string[];
+  isUnread?: boolean;
+  isFavorite?: boolean;
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  createdAt: string;
+  articleCount: number;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  createdAt: string;
+  articleCount: number;
+}
+
+export interface AppSettings {
+  theme: 'auto' | 'light' | 'dark';
+  fontSize: 'small' | 'medium' | 'large';
+  fontFamily: 'serif' | 'sans-serif';
+  defaultView: 'all' | 'unread';
 }
 
 const ARTICLES_KEY = 'instachat_articles';
+const FOLDERS_KEY = 'instachat_folders';
+const TAGS_KEY = 'instachat_tags';
+const SETTINGS_KEY = 'instachat_settings';
 
 /**
  * Save article to local storage
@@ -149,6 +177,122 @@ export const clearAllArticles = async (): Promise<void> => {
     console.log('[Database] All articles cleared');
   } catch (error) {
     console.error('[Database] Error clearing articles:', error);
+    throw error;
+  }
+};
+
+// ===== FOLDERS =====
+
+export const createFolder = async (name: string): Promise<Folder> => {
+  try {
+    const folders = await getAllFolders();
+    const newFolder: Folder = {
+      id: `folder_${Date.now()}`,
+      name,
+      createdAt: new Date().toISOString(),
+      articleCount: 0,
+    };
+    await AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify([newFolder, ...folders]));
+    console.log('[Database] Folder created:', newFolder.id);
+    return newFolder;
+  } catch (error) {
+    console.error('[Database] Error creating folder:', error);
+    throw error;
+  }
+};
+
+export const getAllFolders = async (): Promise<Folder[]> => {
+  try {
+    const data = await AsyncStorage.getItem(FOLDERS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('[Database] Error getting folders:', error);
+    return [];
+  }
+};
+
+export const deleteFolder = async (id: string): Promise<void> => {
+  try {
+    const folders = await getAllFolders();
+    const filtered = folders.filter(f => f.id !== id);
+    await AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify(filtered));
+    console.log('[Database] Folder deleted:', id);
+  } catch (error) {
+    console.error('[Database] Error deleting folder:', error);
+    throw error;
+  }
+};
+
+// ===== TAGS =====
+
+export const createTag = async (name: string): Promise<Tag> => {
+  try {
+    const tags = await getAllTags();
+    const newTag: Tag = {
+      id: `tag_${Date.now()}`,
+      name,
+      createdAt: new Date().toISOString(),
+      articleCount: 0,
+    };
+    await AsyncStorage.setItem(TAGS_KEY, JSON.stringify([newTag, ...tags]));
+    console.log('[Database] Tag created:', newTag.id);
+    return newTag;
+  } catch (error) {
+    console.error('[Database] Error creating tag:', error);
+    throw error;
+  }
+};
+
+export const getAllTags = async (): Promise<Tag[]> => {
+  try {
+    const data = await AsyncStorage.getItem(TAGS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('[Database] Error getting tags:', error);
+    return [];
+  }
+};
+
+export const deleteTag = async (id: string): Promise<void> => {
+  try {
+    const tags = await getAllTags();
+    const filtered = tags.filter(t => t.id !== id);
+    await AsyncStorage.setItem(TAGS_KEY, JSON.stringify(filtered));
+    console.log('[Database] Tag deleted:', id);
+  } catch (error) {
+    console.error('[Database] Error deleting tag:', error);
+    throw error;
+  }
+};
+
+// ===== SETTINGS =====
+
+const defaultSettings: AppSettings = {
+  theme: 'dark',
+  fontSize: 'medium',
+  fontFamily: 'serif',
+  defaultView: 'all',
+};
+
+export const getSettings = async (): Promise<AppSettings> => {
+  try {
+    const data = await AsyncStorage.getItem(SETTINGS_KEY);
+    return data ? JSON.parse(data) : defaultSettings;
+  } catch (error) {
+    console.error('[Database] Error getting settings:', error);
+    return defaultSettings;
+  }
+};
+
+export const updateSettings = async (updates: Partial<AppSettings>): Promise<AppSettings> => {
+  try {
+    const current = await getSettings();
+    const updated = { ...current, ...updates };
+    await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
+    console.log('[Database] Settings updated');
+    return updated;
+  } catch (error) {
+    console.error('[Database] Error updating settings:', error);
     throw error;
   }
 };
