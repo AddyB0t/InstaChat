@@ -15,7 +15,7 @@ import {
   Linking,
   Image,
 } from 'react-native';
-import { Article, getArticle, deleteArticle } from '../services/database';
+import { Article, getArticle, deleteArticle, updateArticle } from '../services/database';
 import { formatDate } from '../services/articleExtractor';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
 import { useTheme } from '../context/ThemeContext';
@@ -69,6 +69,20 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
     } catch (error) {
       console.error('[ArticleDetailScreen] Error opening URL:', error);
       Alert.alert('Error', 'Failed to open URL');
+    }
+  };
+
+  const handleToggleReadStatus = async () => {
+    if (!article) return;
+
+    try {
+      const newStatus = !article.isUnread;
+      await updateArticle(article.id, { isUnread: newStatus });
+      setArticle({ ...article, isUnread: newStatus });
+      Alert.alert('Success', newStatus ? 'Marked as unread' : 'Marked as read');
+    } catch (error) {
+      console.error('[ArticleDetailScreen] Error updating article:', error);
+      Alert.alert('Error', 'Failed to update article status');
     }
   };
 
@@ -226,7 +240,18 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
             activeOpacity={0.7}
           >
             <Text style={styles.actionButtonEmoji}>🌐</Text>
-            <Text style={[styles.actionButtonText, fontSizeStyle('xs')]}>Open in Browser</Text>
+            <Text style={[styles.actionButtonText, fontSizeStyle('xs')]}>Open</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: currentColors.primary }]}
+            onPress={handleToggleReadStatus}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.actionButtonEmoji}>{article.isUnread ? '👁️' : '✓'}</Text>
+            <Text style={[styles.actionButtonText, fontSizeStyle('xs')]}>
+              {article.isUnread ? 'Read' : 'Unread'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -235,7 +260,7 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
             activeOpacity={0.7}
           >
             <Text style={styles.actionButtonEmoji}>📋</Text>
-            <Text style={[styles.actionButtonText, fontSizeStyle('xs')]}>Copy URL</Text>
+            <Text style={[styles.actionButtonText, fontSizeStyle('xs')]}>Copy</Text>
           </TouchableOpacity>
         </View>
 

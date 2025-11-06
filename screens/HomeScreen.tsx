@@ -108,13 +108,10 @@ export default function HomeScreen({ navigation }: any) {
       setIsSaved(true);
       loadArticleCount();
 
-      Alert.alert('Success', 'Article saved successfully!', [
-        {
-          text: 'View Articles',
-          onPress: () => navigation.navigate('Library'),
-        },
-        { text: 'OK' },
-      ]);
+      // Auto-navigate to Library after a brief delay so the user sees the "saved" message
+      setTimeout(() => {
+        navigation.navigate('Library');
+      }, 1500);
 
       // Background AI enhancement (non-blocking)
       console.log('[HomeScreen] Starting background AI enhancement...');

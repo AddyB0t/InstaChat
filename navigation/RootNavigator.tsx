@@ -1,21 +1,19 @@
 /**
  * Root Navigation Structure
- * 5-tab bottom navigation: Folders, Tags, +Add, Library, Settings
+ * 4-tab bottom navigation: Home, Add, Library, Settings
  */
 
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 
 // Screens
+import BrowseScreen from '../screens/BrowseScreen';
 import HomeScreen from '../screens/HomeScreen';
-import LibraryScreen from '../screens/LibraryScreen';
+import SwipeLibraryScreen from '../screens/SwipeLibraryScreen';
 import ArticleDetailScreen from '../screens/ArticleDetailScreen';
-import FoldersScreen from '../screens/FoldersScreen';
-import TagsScreen from '../screens/TagsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-import { colors } from '../styles/theme';
 import { useTheme } from '../context/ThemeContext';
 
 const Stack = createStackNavigator();
@@ -29,8 +27,35 @@ const TabIcon = ({ icon }: { icon: string }) => (
 );
 
 /**
+ * Browse Stack Navigator
+ * Handles Browse list and detail view
+ */
+function BrowseStackNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen
+        name="BrowseList"
+        component={BrowseScreen}
+      />
+      <Stack.Screen
+        name="ArticleDetail"
+        component={ArticleDetailScreen}
+        options={({ route }: any) => ({
+          title: route.params?.title || 'Article',
+          headerShown: true,
+        })}
+      />
+    </Stack.Navigator>
+  );
+}
+
+/**
  * Library Stack Navigator
- * Handles Library list and detail view
+ * Handles Tinder-style swipe card library and detail view
  */
 function LibraryStackNavigator() {
   return (
@@ -41,7 +66,7 @@ function LibraryStackNavigator() {
     >
       <Stack.Screen
         name="LibraryList"
-        component={LibraryScreen}
+        component={SwipeLibraryScreen}
       />
       <Stack.Screen
         name="ArticleDetail"
@@ -96,21 +121,12 @@ export function RootNavigator() {
       }}
     >
       <Tab.Screen
-        name="Folders"
-        component={FoldersScreen}
+        name="Home"
+        component={BrowseStackNavigator}
         options={{
-          title: 'Folders',
-          tabBarLabel: 'Folders',
-          tabBarIcon: () => <TabIcon icon="📁" />,
-        }}
-      />
-      <Tab.Screen
-        name="Tags"
-        component={TagsScreen}
-        options={{
-          title: 'Tags',
-          tabBarLabel: 'Tags',
-          tabBarIcon: () => <TabIcon icon="🏷️" />,
+          title: 'Home',
+          tabBarLabel: 'Home',
+          tabBarIcon: () => <TabIcon icon="📖" />,
         }}
       />
       <Tab.Screen

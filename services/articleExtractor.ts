@@ -77,10 +77,10 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
 
     console.log('[ArticleExtractor] Content extracted, type:', typeof content, 'length:', content ? content.length : 0);
 
-    // Generate title and description using GPT-4o
+    // Generate title and description using GPT-4o (required, no fallback)
     const { title: gptTitle, description: gptDescription } = await generateTitleAndDescription(content, url);
 
-    // Use GPT-4o generated title and description, with Jina fallbacks
+    // Use GPT-4o generated title and description
     const title = gptTitle || data.title || extractTitleFromUrl(url);
     const description = gptDescription || data.description || extractDescription(content);
     const author = data.author || 'Unknown';
@@ -145,6 +145,7 @@ export const createArticle = (url: string, extractedData: ExtractedArticleData):
     summary: extractedData.description,
     imageUrl: extractedData.imageUrl,
     savedAt: new Date().toISOString(),
+    isUnread: true, // New articles are unread by default
   };
 
   console.log('[ArticleExtractor] Article object created with ID:', article.id, 'Title:', article.title);
