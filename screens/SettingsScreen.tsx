@@ -12,15 +12,35 @@ import {
   TouchableOpacity,
   Alert,
   SectionList,
+  ActivityIndicator,
 } from 'react-native';
 import { clearAllArticles, AppSettings } from '../services/database';
 import { useTheme } from '../context/ThemeContext';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
+import { testAiConnection } from '../services/aiEnhancer';
 
 const SettingsScreen = () => {
   const { settings, updateTheme, getFontSize, getColors } = useTheme();
   const currentColors = getColors();
   const fontSizeStyle = (size: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | 'xxl') => ({ fontSize: getFontSize(size), fontFamily: settings.fontFamily === 'serif' ? 'serif' : 'sans-serif' });
+
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    try {
+      const result = await testAiConnection();
+      if (result.success) {
+        Alert.alert('Success', result.message);
+      } else {
+        Alert.alert('Connection Failed', result.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to test connection');
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
 
   const updateSetting = async <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     try {
@@ -237,6 +257,26 @@ const SettingsScreen = () => {
         />
       </View>
 
+      {/* AI ENHANCEMENT */}
+      <View style={[styles.section, { borderBottomColor: currentColors.border }]}>
+        <Text style={[styles.sectionTitle, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>AI ENHANCEMENT ✨</Text>
+
+        <TouchableOpacity
+          style={[styles.testButton, { backgroundColor: currentColors.primary }]}
+          onPress={handleTestConnection}
+          disabled={isTestingConnection}
+        >
+          {isTestingConnection ? (
+            <>
+              <ActivityIndicator color="white" size="small" style={{ marginRight: spacing.sm }} />
+              <Text style={[styles.testButtonText, fontSizeStyle('sm')]}>Testing...</Text>
+            </>
+          ) : (
+            <Text style={[styles.testButtonText, fontSizeStyle('sm')]}>🧪 Test AI Connection</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {/* DATA */}
       <View style={[styles.section, { borderBottomColor: currentColors.border }]}>
         <Text style={[styles.sectionTitle, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>DATA</Text>
@@ -392,6 +432,58 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.dark.textSecondary,
     marginTop: spacing.sm,
+  },
+  settingDescription: {
+    fontSize: fontSize.xs,
+    color: colors.dark.textSecondary,
+    marginTop: spacing.xs,
+  },
+  apiKeyInput: {
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+    color: colors.dark.text,
+    fontSize: fontSize.sm,
+  },
+  primaryButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.dark.primary,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  primaryButtonText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: '#FFFFFF',
+  },
+  secondaryButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.dark.primary,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+  },
+  testButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.dark.primary,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  testButtonText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: '#FFFFFF',
   },
   footer: {
     paddingHorizontal: spacing.md,

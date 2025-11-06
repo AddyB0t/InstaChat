@@ -18,7 +18,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { extractAndCreateArticle } from '../services/articleExtractor';
-import { saveArticle, getArticleCount } from '../services/database';
+import { saveArticle, getArticleCount, updateArticleWithAiEnhancement } from '../services/database';
+import { enhanceArticleContent } from '../services/aiEnhancer';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
 import { useTheme } from '../context/ThemeContext';
 
@@ -35,42 +36,8 @@ export default function HomeScreen({ navigation }: any) {
   const [articleCount, setArticleCount] = useState(0);
   const eventEmitterSubscription = useRef<any>(null);
 
-  // Set up listener for share intents
-  useEffect(() => {
-    if (SharedIntentModule) {
-      try {
-        const eventEmitter = new NativeEventEmitter(SharedIntentModule);
-
-        const subscription = eventEmitter.addListener(
-          'onShareIntent',
-          (data: any) => {
-            console.log('[HomeScreen] Share intent received:', data);
-            if (data && data.url) {
-              console.log('[HomeScreen] Setting shared URL and navigating to Add tab');
-              setSharedUrl(data.url);
-              setIsSaved(false);
-              // Navigate to Add tab so user sees the URL immediately
-              navigation.navigate('Add');
-            }
-          }
-        );
-
-        eventEmitterSubscription.current = subscription;
-      } catch (error) {
-        console.log('[HomeScreen] Error setting up share intent listener:', error);
-      }
-    }
-
-    return () => {
-      if (eventEmitterSubscription.current) {
-        try {
-          eventEmitterSubscription.current.remove();
-        } catch (e) {
-          console.log('[HomeScreen] Error removing listener:', e);
-        }
-      }
-    };
-  }, []);
+  // Note: Share intent listener moved to App.tsx for auto-save functionality
+  // This screen now only handles manual URL input
 
   // Load article count when screen is focused
   useFocusEffect(
@@ -148,6 +115,30 @@ export default function HomeScreen({ navigation }: any) {
         },
         { text: 'OK' },
       ]);
+
+      // Background AI enhancement (non-blocking)
+      console.log('[HomeScreen] Starting background AI enhancement...');
+      enhanceArticleContent(article.title, article.content)
+        .then(async (enhanced) => {
+          if (enhanced) {
+            console.log('[HomeScreen] AI enhancement completed, updating article...');
+            await updateArticleWithAiEnhancement(
+              article.id,
+              enhanced.summary,
+              enhanced.keyPoints,
+              enhanced.suggestedTags,
+              enhanced.category,
+              enhanced.sentiment,
+              enhanced.readingTimeMinutes
+            );
+            console.log('[HomeScreen] Article updated with AI enhancement');
+          } else {
+            console.log('[HomeScreen] AI enhancement skipped (no API key or error)');
+          }
+        })
+        .catch((error) => {
+          console.warn('[HomeScreen] Background AI enhancement failed (non-blocking):', error);
+        });
     } catch (error) {
       console.error('[HomeScreen] Error saving article:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';

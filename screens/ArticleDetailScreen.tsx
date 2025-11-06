@@ -168,6 +168,57 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
           </View>
         )}
 
+        {article.aiEnhanced && article.aiSummary && (
+          <View style={[styles.aiEnhancedContainer, { backgroundColor: currentColors.primary + '15', borderLeftColor: currentColors.primary }]}>
+            <Text style={[styles.aiEnhancedTitle, { color: currentColors.primary }, fontSizeStyle('sm')]}>✨ AI Summary</Text>
+            <Text style={[styles.aiEnhancedText, { color: currentColors.text }, fontSizeStyle('sm')]}>{article.aiSummary}</Text>
+
+            {article.aiKeyPoints && article.aiKeyPoints.length > 0 && (
+              <View style={styles.keyPointsSection}>
+                <Text style={[styles.keyPointsTitle, { color: currentColors.primary }, fontSizeStyle('xs')]}>Key Points:</Text>
+                {article.aiKeyPoints.map((point, index) => (
+                  <Text key={index} style={[styles.keyPoint, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>
+                    • {point}
+                  </Text>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.aiMetadataRow}>
+              {article.aiCategory && (
+                <View style={[styles.aiMetadataItem, { backgroundColor: currentColors.surface }]}>
+                  <Text style={[styles.aiMetadataLabel, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>Category</Text>
+                  <Text style={[styles.aiMetadataValue, { color: currentColors.text }, fontSizeStyle('xs')]}>{article.aiCategory}</Text>
+                </View>
+              )}
+              {article.readingTimeMinutes && (
+                <View style={[styles.aiMetadataItem, { backgroundColor: currentColors.surface }]}>
+                  <Text style={[styles.aiMetadataLabel, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>Reading Time</Text>
+                  <Text style={[styles.aiMetadataValue, { color: currentColors.text }, fontSizeStyle('xs')]}>{article.readingTimeMinutes} min</Text>
+                </View>
+              )}
+              {article.aiSentiment && (
+                <View style={[styles.aiMetadataItem, { backgroundColor: currentColors.surface }]}>
+                  <Text style={[styles.aiMetadataLabel, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>Sentiment</Text>
+                  <Text style={[styles.aiMetadataValue, { color: currentColors.text }, fontSizeStyle('xs')]}>
+                    {article.aiSentiment === 'positive' ? '😊' : article.aiSentiment === 'negative' ? '😞' : '😐'} {article.aiSentiment}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {article.aiTags && article.aiTags.length > 0 && (
+              <View style={styles.aiTagsContainer}>
+                {article.aiTags.map((tag, index) => (
+                  <View key={index} style={[styles.aiTag, { backgroundColor: currentColors.primary + '25' }]}>
+                    <Text style={[styles.aiTagText, { color: currentColors.primary }, fontSizeStyle('xs')]}>#{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: currentColors.primary }]}
@@ -292,6 +343,79 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.dark.textSecondary,
     lineHeight: 20,
+  },
+  aiEnhancedContainer: {
+    backgroundColor: colors.dark.surface,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.dark.primary,
+  },
+  aiEnhancedTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.dark.primary,
+    marginBottom: spacing.md,
+  },
+  aiEnhancedText: {
+    fontSize: fontSize.sm,
+    color: colors.dark.text,
+    lineHeight: 20,
+    marginBottom: spacing.md,
+  },
+  keyPointsSection: {
+    marginBottom: spacing.md,
+  },
+  keyPointsTitle: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.dark.primary,
+    marginBottom: spacing.sm,
+  },
+  keyPoint: {
+    fontSize: fontSize.xs,
+    color: colors.dark.textSecondary,
+    lineHeight: 18,
+    marginBottom: spacing.xs,
+  },
+  aiMetadataRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  aiMetadataItem: {
+    backgroundColor: colors.dark.surface,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.sm,
+    alignItems: 'center',
+  },
+  aiMetadataLabel: {
+    fontSize: fontSize.xs,
+    color: colors.dark.textSecondary,
+  },
+  aiMetadataValue: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.dark.text,
+  },
+  aiTagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  aiTag: {
+    backgroundColor: colors.dark.primary,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.sm,
+  },
+  aiTagText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.dark.primary,
   },
   actionsContainer: {
     flexDirection: 'row',

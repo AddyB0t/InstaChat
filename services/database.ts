@@ -19,6 +19,15 @@ export interface Article {
   tags?: string[];
   isUnread?: boolean;
   isFavorite?: boolean;
+
+  // AI Enhancement Fields
+  aiEnhanced?: boolean;
+  aiSummary?: string;
+  aiKeyPoints?: string[];
+  aiTags?: string[];
+  aiCategory?: string;
+  aiSentiment?: 'positive' | 'neutral' | 'negative';
+  readingTimeMinutes?: number;
 }
 
 export interface Folder {
@@ -172,6 +181,35 @@ export const updateArticle = async (id: string, updates: Partial<Article>): Prom
     return updated;
   } catch (error) {
     console.error('[Database] Error updating article:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update article with AI enhancement results
+ */
+export const updateArticleWithAiEnhancement = async (
+  id: string,
+  aiSummary: string,
+  aiKeyPoints: string[],
+  aiTags: string[],
+  aiCategory: string,
+  aiSentiment: 'positive' | 'neutral' | 'negative',
+  readingTimeMinutes: number
+): Promise<Article | null> => {
+  try {
+    console.log('[Database] Updating article with AI enhancement:', id);
+    return await updateArticle(id, {
+      aiEnhanced: true,
+      aiSummary,
+      aiKeyPoints,
+      aiTags,
+      aiCategory,
+      aiSentiment,
+      readingTimeMinutes,
+    });
+  } catch (error) {
+    console.error('[Database] Error updating article with AI enhancement:', error);
     throw error;
   }
 };
