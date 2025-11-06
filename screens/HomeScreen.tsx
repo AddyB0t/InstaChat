@@ -14,6 +14,7 @@ import {
   NativeEventEmitter,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { extractAndCreateArticle } from '../services/articleExtractor';
@@ -28,6 +29,7 @@ export default function HomeScreen({ navigation }: any) {
   const currentColors = getColors();
   const fontSizeStyle = (size: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | 'xxl') => ({ fontSize: getFontSize(size), fontFamily: settings.fontFamily === 'serif' ? 'serif' : 'sans-serif' });
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
+  const [manualUrl, setManualUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [articleCount, setArticleCount] = useState(0);
@@ -44,8 +46,11 @@ export default function HomeScreen({ navigation }: any) {
           (data: any) => {
             console.log('[HomeScreen] Share intent received:', data);
             if (data && data.url) {
+              console.log('[HomeScreen] Setting shared URL and navigating to Add tab');
               setSharedUrl(data.url);
               setIsSaved(false);
+              // Navigate to Add tab so user sees the URL immediately
+              navigation.navigate('Add');
             }
           }
         );
@@ -83,6 +88,35 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
+  const validateAndSetUrl = (url: string) => {
+    if (!url || url.trim() === '') {
+      Alert.alert('Error', 'Please enter a valid URL');
+      return false;
+    }
+
+    // Check if URL starts with http:// or https://
+    let processedUrl = url.trim();
+    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+      processedUrl = 'https://' + processedUrl;
+    }
+
+    // Try to validate URL format
+    try {
+      new URL(processedUrl);
+      setSharedUrl(processedUrl);
+      setManualUrl('');
+      setIsSaved(false);
+      return true;
+    } catch (error) {
+      Alert.alert('Invalid URL', 'Please enter a valid URL (e.g., https://example.com)');
+      return false;
+    }
+  };
+
+  const handleManualUrlSubmit = () => {
+    validateAndSetUrl(manualUrl);
+  };
+
   const handleSaveArticle = async () => {
     if (!sharedUrl) {
       Alert.alert('Error', 'No URL to save');
@@ -92,11 +126,17 @@ export default function HomeScreen({ navigation }: any) {
     setIsLoading(true);
     try {
       console.log('[HomeScreen] Extracting and saving article from:', sharedUrl);
+      console.log('[HomeScreen] Starting extraction process...');
 
       const article = await extractAndCreateArticle(sharedUrl);
-      await saveArticle(article);
+      console.log('[HomeScreen] Article extracted:', {
+        id: article.id,
+        title: article.title,
+        url: article.url,
+      });
 
-      console.log('[HomeScreen] Article saved successfully:', article.id);
+      await saveArticle(article);
+      console.log('[HomeScreen] Article saved successfully to database:', article.id);
 
       setIsSaved(true);
       loadArticleCount();
@@ -104,15 +144,17 @@ export default function HomeScreen({ navigation }: any) {
       Alert.alert('Success', 'Article saved successfully!', [
         {
           text: 'View Articles',
-          onPress: () => navigation.navigate('Articles'),
+          onPress: () => navigation.navigate('Library'),
         },
         { text: 'OK' },
       ]);
     } catch (error) {
       console.error('[HomeScreen] Error saving article:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('[HomeScreen] Error details:', errorMessage);
       Alert.alert(
         'Error',
-        `Failed to save article: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to save article: ${errorMessage}`
       );
     } finally {
       setIsLoading(false);
@@ -174,13 +216,50 @@ export default function HomeScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={[styles.section, { backgroundColor: currentColors.surfaceLight, borderColor: currentColors.border }]}>
-          <Text style={styles.emptyEmoji}>📥</Text>
-          <Text style={[styles.sectionTitle, { color: currentColors.text }]}>Ready to receive shares</Text>
-          <Text style={[styles.instructionText, { color: currentColors.textSecondary }]}>
-            Share a URL from Chrome, Safari, or any other app to save it here for reading later.
-          </Text>
-        </View>
+        <>
+          <View style={[styles.section, { backgroundColor: currentColors.surfaceLight, borderColor: currentColors.border }]}>
+            <Text style={styles.emptyEmoji}>📥</Text>
+            <Text style={[styles.sectionTitle, { color: currentColors.text }]}>Ready to receive shares</Text>
+            <Text style={[styles.instructionText, { color: currentColors.textSecondary }]}>
+              Share a URL from Chrome, Safari, or any other app to save it here for reading later.
+            </Text>
+          </View>
+
+          <View style={[styles.section, { backgroundColor: currentColors.surfaceLight, borderColor: currentColors.border }]}>
+            <Text style={[styles.sectionTitle, { color: currentColors.text }]}>Or paste a URL manually:</Text>
+            <TextInput
+              style={[
+                styles.urlInput,
+                {
+                  backgroundColor: currentColors.surface,
+                  borderColor: currentColors.border,
+                  color: currentColors.text,
+                },
+                fontSizeStyle('base'),
+              ]}
+              placeholder="Paste URL here (e.g., https://example.com)"
+              placeholderTextColor={currentColors.textSecondary}
+              value={manualUrl}
+              onChangeText={setManualUrl}
+              onSubmitEditing={handleManualUrlSubmit}
+              editable={!isLoading}
+              selectTextOnFocus
+              returnKeyType="go"
+            />
+            <TouchableOpacity
+              style={[
+                styles.button,
+                { backgroundColor: currentColors.primary },
+                (!manualUrl || isLoading) && styles.buttonDisabled,
+              ]}
+              onPress={handleManualUrlSubmit}
+              disabled={!manualUrl || isLoading}
+            >
+              <Text style={styles.buttonEmoji}>↗️</Text>
+              <Text style={styles.buttonText}>Load URL</Text>
+            </TouchableOpacity>
+          </View>
+        </>
       )}
 
       <View style={styles.statsSection}>
@@ -259,6 +338,16 @@ const styles = StyleSheet.create({
     color: colors.dark.primaryLight,
     fontFamily: 'monospace',
     lineHeight: 18,
+  },
+  urlInput: {
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    fontSize: fontSize.base,
+    color: colors.dark.text,
   },
   button: {
     backgroundColor: colors.dark.primary,

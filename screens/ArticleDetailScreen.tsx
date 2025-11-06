@@ -24,12 +24,18 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
   const { getColors, getFontSize, settings } = useTheme();
   const currentColors = getColors();
   const fontSizeStyle = (size: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | 'xxl') => ({ fontSize: getFontSize(size), fontFamily: settings.fontFamily === 'serif' ? 'serif' : 'sans-serif' });
-  const { articleId } = route.params;
+  // Support both 'id' and 'articleId' for backward compatibility
+  const articleId = route.params?.id || route.params?.articleId;
   const [article, setArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadArticle();
+    if (articleId) {
+      loadArticle();
+    } else {
+      Alert.alert('Error', 'Article ID not provided');
+      navigation.goBack();
+    }
   }, [articleId]);
 
   const loadArticle = async () => {

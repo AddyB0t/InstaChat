@@ -5,9 +5,16 @@
 
 import axios from 'axios';
 import { Article } from './database';
-import { v4 as uuidv4 } from 'uuid';
 
 const JINA_API_URL = 'https://r.jina.ai/';
+
+/**
+ * Generate a unique ID without requiring crypto
+ * Uses timestamp + random number
+ */
+const generateId = (): string => {
+  return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
 
 export interface ExtractedArticleData {
   title: string;
@@ -23,31 +30,63 @@ export interface ExtractedArticleData {
  */
 export const extractArticleFromUrl = async (url: string): Promise<ExtractedArticleData> => {
   try {
-    console.log('[ArticleExtractor] Extracting from:', url);
+    console.log('[ArticleExtractor] Starting extraction process');
+    console.log('[ArticleExtractor] URL:', url);
 
     // Validate URL
     if (!isValidUrl(url)) {
-      throw new Error('Invalid URL');
+      const errMsg = 'Invalid URL format. Please check the URL and try again.';
+      console.error('[ArticleExtractor] ' + errMsg);
+      throw new Error(errMsg);
     }
+    console.log('[ArticleExtractor] URL validation passed');
 
     // Call Jina AI Reader API
-    const response = await axios.get(`${JINA_API_URL}${url}`, {
+    console.log('[ArticleExtractor] Calling Jina AI API...');
+    const jenaUrl = `${JINA_API_URL}${url}`;
+    console.log('[ArticleExtractor] Jina API URL:', jenaUrl);
+
+    const response = await axios.get(jenaUrl, {
       headers: {
         'Accept': 'application/json',
       },
       timeout: 10000,
     });
 
-    console.log('[ArticleExtractor] Response received');
+    console.log('[ArticleExtractor] API Response received with status:', response.status);
+    console.log('[ArticleExtractor] Response has data:', !!response.data);
 
     // Parse response
     const data = response.data;
-    const content = data.data || data.content || data.text || '';
+    console.log('[ArticleExtractor] Response data keys:', Object.keys(data).join(', '));
+
+    // Extract content - check for various possible field names from Jina API
+    let content = '';
+    if (typeof data.data === 'string') {
+      content = data.data;
+    } else if (typeof data.content === 'string') {
+      content = data.content;
+    } else if (typeof data.text === 'string') {
+      content = data.text;
+    } else if (data.data && typeof data.data === 'object' && data.data.content) {
+      content = data.data.content;
+    }
+
+    console.log('[ArticleExtractor] Content extracted, type:', typeof content, 'length:', content ? content.length : 0);
+
     const title = data.title || extractTitleFromUrl(url);
-    const description = data.description || extractDescription(content);
+    const description = data.description || (content ? extractDescription(content) : '');
     const author = data.author || 'Unknown';
     const publishDate = data.publish_date || data.publishedTime || new Date().toISOString();
     const imageUrl = data.image || data.imageUrl || '';
+
+    console.log('[ArticleExtractor] Article metadata extracted:', {
+      title: title.substring(0, 50),
+      author,
+      contentLength: content.length,
+      descriptionLength: description.length,
+      hasImage: !!imageUrl,
+    });
 
     console.log('[ArticleExtractor] Successfully extracted article');
 
@@ -60,7 +99,13 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
       imageUrl,
     };
   } catch (error) {
-    console.error('[ArticleExtractor] Error extracting article:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[ArticleExtractor] Error extracting article:');
+    console.error('[ArticleExtractor] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('[ArticleExtractor] Error message:', errorMessage);
+    if (error instanceof Error && error.stack) {
+      console.error('[ArticleExtractor] Stack:', error.stack);
+    }
     throw error;
   }
 };
@@ -69,8 +114,12 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
  * Create article object from extracted data
  */
 export const createArticle = (url: string, extractedData: ExtractedArticleData): Article => {
-  return {
-    id: uuidv4(),
+  console.log('[ArticleExtractor] Creating article object...');
+  const articleId = generateId();
+  console.log('[ArticleExtractor] Generated article ID:', articleId);
+
+  const article: Article = {
+    id: articleId,
     url,
     title: extractedData.title,
     content: extractedData.content,
@@ -80,14 +129,26 @@ export const createArticle = (url: string, extractedData: ExtractedArticleData):
     imageUrl: extractedData.imageUrl,
     savedAt: new Date().toISOString(),
   };
+
+  console.log('[ArticleExtractor] Article object created with ID:', article.id);
+  return article;
 };
 
 /**
  * Extract and create article in one step
  */
 export const extractAndCreateArticle = async (url: string): Promise<Article> => {
-  const extractedData = await extractArticleFromUrl(url);
-  return createArticle(url, extractedData);
+  console.log('[ArticleExtractor] extractAndCreateArticle called for URL:', url);
+  try {
+    const extractedData = await extractArticleFromUrl(url);
+    console.log('[ArticleExtractor] Extraction completed, creating article object...');
+    const article = createArticle(url, extractedData);
+    console.log('[ArticleExtractor] Article created successfully with ID:', article.id);
+    return article;
+  } catch (error) {
+    console.error('[ArticleExtractor] Failed in extractAndCreateArticle');
+    throw error;
+  }
 };
 
 /**

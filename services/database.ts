@@ -52,21 +52,42 @@ const SETTINGS_KEY = 'instachat_settings';
  */
 export const saveArticle = async (article: Article): Promise<void> => {
   try {
-    const existingArticles = await getAllArticles();
+    console.log('[Database] saveArticle called for article ID:', article.id);
+    console.log('[Database] Article URL:', article.url);
+    console.log('[Database] Article title:', article.title);
 
-    // Check if article already exists
-    const exists = existingArticles.some(a => a.id === article.id);
-    if (exists) {
-      throw new Error('Article already saved');
+    const existingArticles = await getAllArticles();
+    console.log('[Database] Total existing articles:', existingArticles.length);
+
+    // Check if article with same ID already exists
+    const existsById = existingArticles.some(a => a.id === article.id);
+    if (existsById) {
+      const errMsg = 'Article with this ID already saved';
+      console.error('[Database] ' + errMsg);
+      throw new Error(errMsg);
     }
+
+    // Check if article with same URL already exists (prevent duplicates)
+    const existsByUrl = existingArticles.find(a => a.url === article.url);
+    if (existsByUrl) {
+      const errMsg = `Article from this URL already saved (ID: ${existsByUrl.id})`;
+      console.warn('[Database] ' + errMsg);
+      throw new Error(errMsg);
+    }
+
+    console.log('[Database] No duplicates found, proceeding to save...');
 
     // Add to storage
     const updated = [article, ...existingArticles];
-    await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(updated));
+    console.log('[Database] Total articles after save:', updated.length);
 
-    console.log('[Database] Article saved:', article.id);
+    await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(updated));
+    console.log('[Database] Article saved successfully to AsyncStorage:', article.id);
+
   } catch (error) {
-    console.error('[Database] Error saving article:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Database] Error saving article:');
+    console.error('[Database] Error message:', errorMessage);
     throw error;
   }
 };
