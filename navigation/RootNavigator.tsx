@@ -11,7 +11,7 @@ import { Text } from 'react-native';
 // Screens
 import BrowseScreen from '../screens/BrowseScreen';
 import HomeScreen from '../screens/HomeScreen';
-import SwipeLibraryScreen from '../screens/SwipeLibraryScreen';
+import LibraryScreen from '../screens/LibraryScreen';
 import ArticleDetailScreen from '../screens/ArticleDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { useTheme } from '../context/ThemeContext';
@@ -55,7 +55,7 @@ function BrowseStackNavigator() {
 
 /**
  * Library Stack Navigator
- * Handles Tinder-style swipe card library and detail view
+ * Handles Library list and detail view
  */
 function LibraryStackNavigator() {
   return (
@@ -66,7 +66,7 @@ function LibraryStackNavigator() {
     >
       <Stack.Screen
         name="LibraryList"
-        component={SwipeLibraryScreen}
+        component={LibraryScreen}
       />
       <Stack.Screen
         name="ArticleDetail"

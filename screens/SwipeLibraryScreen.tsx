@@ -1,22 +1,13 @@
 /**
- * Library Screen - Static List View
- * Displays all articles (read and unread) with read/unread status indicators
+ * Swipe Library Screen
+ * Tinder-style card swiping interface for managing articles
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAllArticles, deleteArticle, Article } from '../services/database';
+import { SwipeCard } from '../components/SwipeCard';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
 import { useTheme } from '../context/ThemeContext';
 
@@ -26,7 +17,7 @@ export default function SwipeLibraryScreen({ navigation }: any) {
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -38,96 +29,54 @@ export default function SwipeLibraryScreen({ navigation }: any) {
     try {
       setIsLoading(true);
       const allArticles = await getAllArticles();
-      // Sort: unread first, then by saved date (newest first)
-      const sorted = allArticles.sort((a, b) => {
-        if (a.isUnread === b.isUnread) {
-          return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
-        }
-        return a.isUnread ? -1 : 1;
-      });
+      // Sort by newest first
+      const sorted = allArticles.sort(
+        (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
+      );
       setArticles(sorted);
+      setCurrentIndex(0);
     } catch (error) {
-      console.error('[Library] Error loading articles:', error);
+      console.error('[SwipeLibrary] Error loading articles:', error);
       Alert.alert('Error', 'Failed to load articles');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadArticles();
-    setRefreshing(false);
-  };
-
-  const handleDeleteArticle = async (articleId: string) => {
-    try {
-      await deleteArticle(articleId);
-      setArticles(articles.filter(a => a.id !== articleId));
-      Alert.alert('Success', 'Article deleted');
-    } catch (error) {
-      console.error('[Library] Error deleting article:', error);
-      Alert.alert('Error', 'Failed to delete article');
+  const handleSwipeLeft = async () => {
+    // Swipe left = next article
+    if (currentIndex < articles.length - 1) {
+      setCurrentIndex(currentIndex + 1);
     }
   };
 
-  const handleArticlePress = (article: Article) => {
-    navigation.navigate('ArticleDetail', {
-      articleId: article.id,
-      title: article.title,
-    });
+  const handleSwipeRight = () => {
+    // Swipe right = open article link (navigate to detail)
+    if (articles[currentIndex]) {
+      navigation.navigate('ArticleDetail', {
+        articleId: articles[currentIndex].id,
+        title: articles[currentIndex].title,
+      });
+    }
   };
 
-  const ArticleRow = ({ article }: { article: Article }) => (
-    <TouchableOpacity
-      style={[
-        styles.articleRow,
-        {
-          backgroundColor: article.isUnread ? currentColors.surface : currentColors.surfaceLight,
-          borderLeftColor: article.isUnread ? currentColors.primary : currentColors.border,
-        },
-      ]}
-      onPress={() => handleArticlePress(article)}
-    >
-      {/* Article Image */}
-      {article.imageUrl && (
-        <Image
-          source={{ uri: article.imageUrl }}
-          style={styles.articleImage}
-        />
-      )}
+  const handleTap = () => {
+    // Tap card = open article detail
+    if (articles[currentIndex]) {
+      navigation.navigate('ArticleDetail', {
+        articleId: articles[currentIndex].id,
+        title: articles[currentIndex].title,
+      });
+    }
+  };
 
-      {/* Article Content */}
-      <View style={styles.articleContent}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.articleTitle, { color: currentColors.text }]} numberOfLines={2}>
-            {article.title}
-          </Text>
-          {article.isUnread && (
-            <View style={[styles.unreadBadge, { backgroundColor: currentColors.primary }]} />
-          )}
-        </View>
+  const handleNextCard = () => {
+    if (currentIndex < articles.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
 
-        <Text style={[styles.articleSummary, { color: currentColors.textSecondary }]} numberOfLines={2}>
-          {article.summary || 'No description'}
-        </Text>
-
-        <View style={styles.articleFooter}>
-          <Text style={[styles.articleDate, { color: currentColors.textSecondary }]}>
-            {new Date(article.savedAt).toLocaleDateString()}
-          </Text>
-          <TouchableOpacity
-            onPress={() => handleDeleteArticle(article.id)}
-            style={styles.deleteButton}
-          >
-            <Text style={styles.deleteIcon}>🗑️</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  if (isLoading && articles.length === 0) {
+  if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: currentColors.background }]}>
         <ActivityIndicator size="large" color={currentColors.primary} />
@@ -140,37 +89,65 @@ export default function SwipeLibraryScreen({ navigation }: any) {
       <View style={[styles.container, { backgroundColor: currentColors.background }]}>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>📚</Text>
-          <Text style={[styles.emptyTitle, { color: currentColors.text }]}>No articles</Text>
+          <Text style={[styles.emptyTitle, { color: currentColors.text }]}>No Articles</Text>
           <Text style={[styles.emptyDescription, { color: currentColors.textSecondary }]}>
-            Your library is empty. Share URLs or use the Add tab to save articles
+            Your library is empty. Share URLs to get started!
           </Text>
         </View>
       </View>
     );
   }
 
-  // Count unread articles
-  const unreadCount = articles.filter(a => a.isUnread).length;
+  const currentArticle = articles[currentIndex];
+  const isLastCard = currentIndex === articles.length - 1;
 
   return (
     <View style={[styles.container, { backgroundColor: currentColors.background }]}>
+      {/* Header with progress */}
       <View style={[styles.header, { borderBottomColor: currentColors.border }]}>
         <Text style={[styles.title, { color: currentColors.text }]}>Library</Text>
-        <Text style={[styles.subtitle, { color: currentColors.textSecondary }]}>
-          {unreadCount} unread • {articles.length} total
+        <Text style={[styles.progress, { color: currentColors.textSecondary }]}>
+          {currentIndex + 1} of {articles.length}
         </Text>
       </View>
 
-      <FlatList
-        data={articles}
-        renderItem={({ item }) => <ArticleRow article={item} />}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        scrollEnabled={true}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={currentColors.primary} />
-        }
-      />
+      {/* Swipe Cards Area */}
+      <View style={styles.cardsContainer}>
+        {/* Current Card */}
+        {currentArticle && (
+          <SwipeCard
+            key={currentArticle.id}
+            article={currentArticle}
+            onSwipeLeft={handleSwipeLeft}
+            onSwipeRight={handleSwipeRight}
+            onTap={handleTap}
+          />
+        )}
+
+        {/* Next Card Preview (underneath) */}
+        {!isLastCard && articles[currentIndex + 1] && (
+          <View style={[styles.nextCardPreview, { backgroundColor: currentColors.surface }]}>
+            <Text style={[styles.nextCardText, { color: currentColors.textSecondary }]}>
+              {articles[currentIndex + 1].title}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Footer */}
+      {isLastCard ? (
+        <View style={[styles.footer, { borderTopColor: currentColors.border }]}>
+          <Text style={[styles.footerText, { color: currentColors.textSecondary }]}>
+            🎉 All caught up!
+          </Text>
+        </View>
+      ) : (
+        <View style={[styles.footer, { borderTopColor: currentColors.border }]}>
+          <Text style={[styles.instructionText, { color: currentColors.textSecondary }]}>
+            👈 Swipe Left for Next • Swipe Right to Open 👉
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -191,80 +168,51 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     color: colors.dark.text,
   },
-  subtitle: {
+  progress: {
     fontSize: fontSize.sm,
     color: colors.dark.textSecondary,
     marginTop: spacing.xs,
   },
-  listContent: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+  cardsContainer: {
+    flex: 1,
+    padding: spacing.lg,
+    justifyContent: 'center',
   },
-  articleRow: {
-    flexDirection: 'row',
+  nextCardPreview: {
+    position: 'absolute',
+    bottom: spacing.lg - 10,
+    left: spacing.lg,
+    right: spacing.lg,
+    height: 80,
     backgroundColor: colors.dark.surface,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.dark.primary,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-  },
-  articleImage: {
-    width: 80,
-    height: 100,
-    backgroundColor: colors.dark.surfaceLight,
-  },
-  articleContent: {
-    flex: 1,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    zIndex: -1,
   },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
-  },
-  articleTitle: {
-    flex: 1,
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-    color: colors.dark.text,
-  },
-  unreadBadge: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.dark.primary,
-    marginLeft: spacing.sm,
-    marginTop: 6,
-  },
-  articleSummary: {
-    fontSize: fontSize.xs,
+  nextCardText: {
+    fontSize: fontSize.sm,
     color: colors.dark.textSecondary,
-    lineHeight: 16,
-    marginBottom: spacing.sm,
+    fontWeight: fontWeight.semibold,
+    numberOfLines: 2,
   },
-  articleFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  footer: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.dark.border,
     alignItems: 'center',
   },
-  articleDate: {
-    fontSize: fontSize.xs,
+  instructionText: {
+    fontSize: fontSize.sm,
     color: colors.dark.textSecondary,
+    fontWeight: fontWeight.semibold,
+    textAlign: 'center',
   },
-  deleteButton: {
-    padding: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  deleteIcon: {
-    fontSize: 16,
+  footerText: {
+    fontSize: fontSize.base,
+    color: colors.dark.textSecondary,
+    fontWeight: fontWeight.semibold,
   },
   emptyContainer: {
     flex: 1,

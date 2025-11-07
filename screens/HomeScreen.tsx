@@ -34,6 +34,7 @@ export default function HomeScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [articleCount, setArticleCount] = useState(0);
+  const [tags, setTags] = useState<string>('');
   const eventEmitterSubscription = useRef<any>(null);
 
   // Note: Share intent listener moved to App.tsx for auto-save functionality
@@ -102,10 +103,17 @@ export default function HomeScreen({ navigation }: any) {
         url: article.url,
       });
 
+      // Add tags if provided
+      if (tags.trim()) {
+        article.tags = tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+        console.log('[HomeScreen] Tags added to article:', article.tags);
+      }
+
       await saveArticle(article);
       console.log('[HomeScreen] Article saved successfully to database:', article.id);
 
       setIsSaved(true);
+      setTags('');
       loadArticleCount();
 
       // Auto-navigate to Library after a brief delay so the user sees the "saved" message
@@ -152,6 +160,7 @@ export default function HomeScreen({ navigation }: any) {
   const handleClearUrl = () => {
     setSharedUrl(null);
     setIsSaved(false);
+    setTags('');
   };
 
   return (
@@ -170,6 +179,28 @@ export default function HomeScreen({ navigation }: any) {
               {sharedUrl}
             </Text>
           </View>
+
+          {!isSaved && (
+            <View>
+              <Text style={[styles.sectionTitle, { color: currentColors.text, marginTop: spacing.lg }]}>Add Tags (optional):</Text>
+              <TextInput
+                style={[
+                  styles.tagsInput,
+                  {
+                    backgroundColor: currentColors.surface,
+                    borderColor: currentColors.border,
+                    color: currentColors.text,
+                  },
+                  fontSizeStyle('sm'),
+                ]}
+                placeholder="E.g., tech, ai, python (comma-separated)"
+                placeholderTextColor={currentColors.textSecondary}
+                value={tags}
+                onChangeText={setTags}
+                editable={!isLoading}
+              />
+            </View>
+          )}
 
           {!isSaved && (
             <TouchableOpacity
@@ -335,6 +366,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
     fontSize: fontSize.base,
+    color: colors.dark.text,
+  },
+  tagsInput: {
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    fontSize: fontSize.sm,
     color: colors.dark.text,
   },
   button: {

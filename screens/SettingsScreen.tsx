@@ -13,8 +13,9 @@ import {
   Alert,
   SectionList,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
-import { clearAllArticles, AppSettings } from '../services/database';
+import { clearAllArticles, AppSettings, addTagsToAllArticles } from '../services/database';
 import { useTheme } from '../context/ThemeContext';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
 import { testAiConnection } from '../services/aiEnhancer';
@@ -25,6 +26,42 @@ const SettingsScreen = () => {
   const fontSizeStyle = (size: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | 'xxl') => ({ fontSize: getFontSize(size), fontFamily: settings.fontFamily === 'serif' ? 'serif' : 'sans-serif' });
 
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState('');
+  const [isAddingTags, setIsAddingTags] = useState(false);
+
+  const handleAddTagsToAll = async () => {
+    if (!bulkTagInput.trim()) {
+      Alert.alert('Error', 'Please enter at least one tag');
+      return;
+    }
+
+    Alert.alert(
+      'Add Tags to All Articles',
+      `Add tags "${bulkTagInput}" to all existing articles?`,
+      [
+        { text: 'Cancel', onPress: () => {} },
+        {
+          text: 'Add Tags',
+          onPress: async () => {
+            setIsAddingTags(true);
+            try {
+              const tags = bulkTagInput
+                .split(',')
+                .map(tag => tag.trim())
+                .filter(tag => tag.length > 0);
+              const updatedCount = await addTagsToAllArticles(tags);
+              setBulkTagInput('');
+              Alert.alert('Success', `Tags added to ${updatedCount} articles`);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to add tags to articles');
+            } finally {
+              setIsAddingTags(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleTestConnection = async () => {
     setIsTestingConnection(true);
@@ -277,6 +314,49 @@ const SettingsScreen = () => {
         </TouchableOpacity>
       </View>
 
+      {/* BULK TAGS */}
+      <View style={[styles.section, { borderBottomColor: currentColors.border }]}>
+        <Text style={[styles.sectionTitle, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>BULK TAGS</Text>
+
+        <View style={styles.settingItem}>
+          <Text style={[styles.settingLabel, { color: currentColors.text }, fontSizeStyle('base')]}>Add Tags to All Articles</Text>
+          <Text style={[styles.settingDescription, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>
+            Add tags to all existing articles at once
+          </Text>
+          <TextInput
+            style={[
+              styles.bulkTagInput,
+              {
+                backgroundColor: currentColors.surface,
+                borderColor: currentColors.border,
+                color: currentColors.text,
+              },
+              fontSizeStyle('sm'),
+            ]}
+            placeholder="E.g., tech, reading, important"
+            placeholderTextColor={currentColors.textSecondary}
+            value={bulkTagInput}
+            onChangeText={setBulkTagInput}
+            editable={!isAddingTags}
+            multiline={false}
+          />
+          <TouchableOpacity
+            style={[styles.primaryButton, { backgroundColor: currentColors.primary }, isAddingTags && styles.buttonDisabled]}
+            onPress={handleAddTagsToAll}
+            disabled={isAddingTags}
+          >
+            {isAddingTags ? (
+              <>
+                <ActivityIndicator color="white" size="small" style={{ marginRight: spacing.sm }} />
+                <Text style={[styles.primaryButtonText, fontSizeStyle('sm')]}>Adding Tags...</Text>
+              </>
+            ) : (
+              <Text style={[styles.primaryButtonText, fontSizeStyle('sm')]}>🏷️ Add Tags to All</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* DATA */}
       <View style={[styles.section, { borderBottomColor: currentColors.border }]}>
         <Text style={[styles.sectionTitle, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>DATA</Text>
@@ -447,6 +527,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     color: colors.dark.text,
     fontSize: fontSize.sm,
+  },
+  bulkTagInput: {
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginVertical: spacing.md,
+    color: colors.dark.text,
+    fontSize: fontSize.sm,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   primaryButton: {
     paddingVertical: spacing.md,

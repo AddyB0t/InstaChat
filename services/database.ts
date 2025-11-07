@@ -355,3 +355,45 @@ export const updateSettings = async (updates: Partial<AppSettings>): Promise<App
     throw error;
   }
 };
+
+/**
+ * Add tags to multiple articles
+ */
+export const addTagsToArticles = async (articleIds: string[], tagsToAdd: string[]): Promise<number> => {
+  try {
+    const articles = await getAllArticles();
+    let updatedCount = 0;
+
+    const updatedArticles = articles.map(article => {
+      if (articleIds.includes(article.id)) {
+        // Merge existing tags with new tags (avoid duplicates)
+        const existingTags = article.tags || [];
+        const mergedTags = Array.from(new Set([...existingTags, ...tagsToAdd]));
+        updatedCount++;
+        return { ...article, tags: mergedTags };
+      }
+      return article;
+    });
+
+    await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(updatedArticles));
+    console.log('[Database] Tags added to', updatedCount, 'articles');
+    return updatedCount;
+  } catch (error) {
+    console.error('[Database] Error adding tags to articles:', error);
+    throw error;
+  }
+};
+
+/**
+ * Add tags to all articles
+ */
+export const addTagsToAllArticles = async (tagsToAdd: string[]): Promise<number> => {
+  try {
+    const articles = await getAllArticles();
+    const articleIds = articles.map(a => a.id);
+    return await addTagsToArticles(articleIds, tagsToAdd);
+  } catch (error) {
+    console.error('[Database] Error adding tags to all articles:', error);
+    throw error;
+  }
+};

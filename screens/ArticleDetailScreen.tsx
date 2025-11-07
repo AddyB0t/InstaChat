@@ -86,6 +86,20 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
     }
   };
 
+  const handleToggleBookmark = async () => {
+    if (!article) return;
+
+    try {
+      const newBookmarkStatus = !article.isBookmarked;
+      await updateArticle(article.id, { isBookmarked: newBookmarkStatus });
+      setArticle({ ...article, isBookmarked: newBookmarkStatus });
+      Alert.alert('Success', newBookmarkStatus ? 'Article bookmarked' : 'Bookmark removed');
+    } catch (error) {
+      console.error('[ArticleDetailScreen] Error toggling bookmark:', error);
+      Alert.alert('Error', 'Failed to update bookmark');
+    }
+  };
+
   const handleDeleteArticle = () => {
     if (!article) return;
 
@@ -264,12 +278,16 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {article.content && (
-          <View style={[styles.fullContent, { backgroundColor: currentColors.surface, borderColor: currentColors.border }]}>
-            <Text style={[styles.contentTitle, { color: currentColors.text }, fontSizeStyle('sm')]}>Article Content</Text>
-            <Text style={[styles.contentText, { color: currentColors.textSecondary }, fontSizeStyle('sm')]}>{article.content}</Text>
-          </View>
-        )}
+        <TouchableOpacity
+          style={[styles.bookmarkButton, article?.isBookmarked && { backgroundColor: currentColors.warning }]}
+          onPress={handleToggleBookmark}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.bookmarkEmoji}>{article?.isBookmarked ? '⭐' : '☆'}</Text>
+          <Text style={[styles.bookmarkText, article?.isBookmarked && { color: currentColors.warning }]}>
+            {article?.isBookmarked ? 'Bookmarked' : 'Bookmark'}
+          </Text>
+        </TouchableOpacity>
 
         <View style={[styles.urlContainer, { backgroundColor: currentColors.surface, borderLeftColor: currentColors.primary }]}>
           <Text style={[styles.urlLabel, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>Article URL:</Text>
@@ -468,25 +486,6 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     marginLeft: spacing.sm,
   },
-  fullContent: {
-    backgroundColor: colors.dark.surface,
-    padding: spacing.lg,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.dark.border,
-  },
-  contentTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.dark.text,
-    marginBottom: spacing.md,
-  },
-  contentText: {
-    fontSize: fontSize.sm,
-    color: colors.dark.textSecondary,
-    lineHeight: 22,
-  },
   urlContainer: {
     backgroundColor: colors.dark.surface,
     padding: spacing.md,
@@ -526,5 +525,28 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
     marginLeft: spacing.md,
+  },
+  bookmarkButton: {
+    backgroundColor: colors.dark.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+    borderWidth: 2,
+    borderColor: colors.dark.primary,
+    elevation: 1,
+  },
+  bookmarkEmoji: {
+    fontSize: fontSize.lg,
+    marginRight: spacing.md,
+  },
+  bookmarkText: {
+    color: colors.dark.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    marginLeft: spacing.sm,
   },
 });
