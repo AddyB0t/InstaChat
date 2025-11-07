@@ -9,11 +9,11 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 
 // Screens
-import BrowseScreen from '../screens/BrowseScreen';
-import HomeScreen from '../screens/HomeScreen';
-import LibraryScreen from '../screens/LibraryScreen';
+import BrowseGlueStack from '../screens/BrowseGlueStack';
+import HomeScreenGlueStack from '../screens/HomeScreenGlueStack';
+import LibraryGlueStack from '../screens/LibraryGlueStack';
 import ArticleDetailScreen from '../screens/ArticleDetailScreen';
-import SettingsScreen from '../screens/SettingsScreen';
+import SettingsGlueStack from '../screens/SettingsGlueStack';
 import { useTheme } from '../context/ThemeContext';
 
 const Stack = createStackNavigator();
@@ -39,7 +39,7 @@ function BrowseStackNavigator() {
     >
       <Stack.Screen
         name="BrowseList"
-        component={BrowseScreen}
+        component={BrowseGlueStack}
       />
       <Stack.Screen
         name="ArticleDetail"
@@ -66,7 +66,7 @@ function LibraryStackNavigator() {
     >
       <Stack.Screen
         name="LibraryList"
-        component={LibraryScreen}
+        component={LibraryGlueStack}
       />
       <Stack.Screen
         name="ArticleDetail"
@@ -93,7 +93,7 @@ function AddStackNavigator() {
     >
       <Stack.Screen
         name="AddArticle"
-        component={HomeScreen}
+        component={HomeScreenGlueStack}
       />
     </Stack.Navigator>
   );
@@ -104,8 +104,13 @@ function AddStackNavigator() {
  * 5-tab main navigation structure
  */
 export function RootNavigator() {
-  const { getColors } = useTheme();
+  const { getColors, settings } = useTheme();
   const currentColors = getColors();
+
+  // Match the background to GlueStack's $backgroundDark900 / $backgroundLight0
+  const navBarBg = settings.theme === 'light' || (settings.theme === 'auto' && currentColors.background === '#FFFFFF')
+    ? '#FFFFFF'
+    : '#121212';
 
   return (
     <Tab.Navigator
@@ -114,7 +119,7 @@ export function RootNavigator() {
         tabBarInactiveTintColor: currentColors.textSecondary,
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: currentColors.surface,
+          backgroundColor: navBarBg,
           borderTopColor: currentColors.border,
           borderTopWidth: 1,
         },
@@ -126,7 +131,7 @@ export function RootNavigator() {
         options={{
           title: 'Home',
           tabBarLabel: 'Home',
-          tabBarIcon: () => <TabIcon icon="📖" />,
+          tabBarIcon: () => <TabIcon icon="🏠" />,
         }}
       />
       <Tab.Screen
@@ -135,7 +140,7 @@ export function RootNavigator() {
         options={{
           title: 'Add',
           tabBarLabel: 'Add',
-          tabBarIcon: () => <TabIcon icon="➕" />,
+          tabBarIcon: () => <TabIcon icon="✚" />,
         }}
       />
       <Tab.Screen
@@ -144,16 +149,16 @@ export function RootNavigator() {
         options={{
           title: 'Library',
           tabBarLabel: 'Library',
-          tabBarIcon: () => <TabIcon icon="📚" />,
+          tabBarIcon: () => <TabIcon icon="📄" />,
         }}
       />
       <Tab.Screen
         name="Settings"
-        component={SettingsScreen}
+        component={SettingsGlueStack}
         options={{
           title: 'Settings',
           tabBarLabel: 'Settings',
-          tabBarIcon: () => <TabIcon icon="⚙️" />,
+          tabBarIcon: () => <TabIcon icon="⚙" />,
         }}
       />
     </Tab.Navigator>

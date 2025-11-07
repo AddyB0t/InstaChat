@@ -6,7 +6,8 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, Animated, PanResponder, GestureResponderEvent, PanResponderGestureState } from 'react-native';
 import { Article } from '../services/database';
-import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
+import { spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface SwipeCardProps {
   article: Article;
@@ -16,6 +17,8 @@ interface SwipeCardProps {
 }
 
 export const SwipeCard = ({ article, onSwipeLeft, onSwipeRight, onTap }: SwipeCardProps) => {
+  const { getColors } = useTheme();
+  const currentColors = getColors();
   const pan = useRef(new Animated.ValueXY()).current;
 
   // Reset pan position when article changes
@@ -92,37 +95,37 @@ export const SwipeCard = ({ article, onSwipeLeft, onSwipeRight, onTap }: SwipeCa
     >
       {/* Next Article indicator (left) */}
       <View style={styles.deleteIndicator}>
-        <Text style={styles.indicatorText}>→ NEXT</Text>
+        <Text style={[styles.indicatorText, { color: currentColors.text }]}>→ NEXT</Text>
       </View>
 
       {/* Open Link indicator (right) */}
       <View style={styles.favoriteIndicator}>
-        <Text style={styles.indicatorText}>🔗 OPEN</Text>
+        <Text style={[styles.indicatorText, { color: currentColors.text }]}>🔗 OPEN</Text>
       </View>
 
       {/* Card content */}
-      <View style={[styles.card]}>
+      <View style={[styles.card, { backgroundColor: currentColors.surface }]}>
         {article.imageUrl && (
           <Image
             source={{ uri: article.imageUrl }}
-            style={styles.cardImage}
+            style={[styles.cardImage, { backgroundColor: currentColors.surfaceLight }]}
           />
         )}
 
         <View style={styles.cardContent}>
-          <Text style={styles.cardTitle} numberOfLines={2}>
+          <Text style={[styles.cardTitle, { color: currentColors.text }]} numberOfLines={2}>
             {article.title}
           </Text>
 
-          <Text style={styles.cardDescription} numberOfLines={3}>
+          <Text style={[styles.cardDescription, { color: currentColors.textSecondary }]} numberOfLines={3}>
             {article.summary || 'No description available'}
           </Text>
 
           <View style={styles.cardFooter}>
-            <Text style={styles.cardMeta}>
+            <Text style={[styles.cardMeta, { color: currentColors.textSecondary }]}>
               {new Date(article.savedAt).toLocaleDateString()}
             </Text>
-            <Text style={styles.swipeHint}>👈 Swipe to action 👉</Text>
+            <Text style={[styles.swipeHint, { color: currentColors.primary }]}>👈 Swipe to action 👉</Text>
           </View>
         </View>
       </View>
@@ -139,7 +142,6 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: colors.dark.surface,
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
     elevation: 5,
@@ -151,7 +153,6 @@ const styles = StyleSheet.create({
   cardImage: {
     width: '100%',
     height: 200,
-    backgroundColor: colors.dark.surfaceLight,
   },
   cardContent: {
     flex: 1,
@@ -161,12 +162,10 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
-    color: colors.dark.text,
     marginBottom: spacing.sm,
   },
   cardDescription: {
     fontSize: fontSize.sm,
-    color: colors.dark.textSecondary,
     lineHeight: 18,
     marginBottom: spacing.md,
   },
@@ -177,11 +176,9 @@ const styles = StyleSheet.create({
   },
   cardMeta: {
     fontSize: fontSize.xs,
-    color: colors.dark.textSecondary,
   },
   swipeHint: {
     fontSize: fontSize.xs,
-    color: colors.dark.primaryLight,
     fontWeight: fontWeight.semibold,
   },
   deleteIndicator: {
@@ -209,6 +206,5 @@ const styles = StyleSheet.create({
   indicatorText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.bold,
-    color: colors.dark.text,
   },
 });

@@ -4,6 +4,7 @@
  */
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { Appearance } from 'react-native';
 import { getSettings, updateSettings, AppSettings } from '../services/database';
 import { colors as themeColors, fontSize as themeFontSize } from '../styles/theme';
 
@@ -26,9 +27,17 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     defaultView: 'all',
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [systemTheme, setSystemTheme] = useState(Appearance.getColorScheme());
 
   useEffect(() => {
     loadSettings();
+
+    // Listen for system theme changes
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      setSystemTheme(colorScheme);
+    });
+
+    return () => subscription.remove();
   }, []);
 
   const loadSettings = async () => {
@@ -57,8 +66,9 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (settings.theme === 'light') {
       return themeColors.light;
     } else if (settings.theme === 'auto') {
-      // For now, default to dark. In the future, can use Appearance API
-      return themeColors.dark;
+      // Use system theme
+      const colorScheme = Appearance.getColorScheme();
+      return colorScheme === 'dark' ? themeColors.dark : themeColors.light;
     }
     return themeColors.dark;
   };

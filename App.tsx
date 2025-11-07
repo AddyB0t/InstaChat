@@ -7,6 +7,8 @@ import React, { useEffect, useRef, createContext, useState, useContext } from 'r
 import { StatusBar, NativeModules, NativeEventEmitter, Alert, ToastAndroid, View, ActivityIndicator, Modal, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GluestackUIProvider } from '@gluestack-ui/themed';
+import { config } from '@gluestack-ui/config';
 import { RootNavigator } from './navigation/RootNavigator';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { extractAndCreateArticle } from './services/articleExtractor';
@@ -111,10 +113,26 @@ function AppContent() {
   );
 }
 
+// Wrapper to connect theme to GlueStack
+function GluestackWrapper() {
+  const { settings } = useTheme();
+
+  // Map theme setting to GlueStack colorMode
+  const colorMode = settings.theme === 'auto'
+    ? 'system'
+    : settings.theme;
+
+  return (
+    <GluestackUIProvider config={config} colorMode={colorMode}>
+      <AppContent />
+    </GluestackUIProvider>
+  );
+}
+
 function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <GluestackWrapper />
     </ThemeProvider>
   );
 }

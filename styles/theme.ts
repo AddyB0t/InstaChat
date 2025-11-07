@@ -5,18 +5,18 @@
 export const colors = {
   // Dark theme (primary)
   dark: {
-    background: '#0A0E27',
-    surface: '#151B2F',
-    surfaceLight: '#1F2640',
+    background: '#121212',
+    surface: '#1E1E1E',
+    surfaceLight: '#2A2A2A',
     primary: '#4A9FFF',
     primaryLight: '#6BB3FF',
     text: '#E8E8E8',
     textSecondary: '#9CA3AF',
-    border: '#2D3647',
+    border: '#3A3A3A',
     success: '#10B981',
     warning: '#F59E0B',
     error: '#EF4444',
-    card: '#1A2139',
+    card: '#1E1E1E',
   },
   // Light theme
   light: {
