@@ -7,6 +7,14 @@ import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { Appearance } from 'react-native';
 import { getSettings, updateSettings, AppSettings } from '../services/database';
 import { colors as themeColors, fontSize as themeFontSize } from '../styles/theme';
+import {
+  getThemeColors,
+  ThemeColors,
+  DarkAccent,
+  DarkBackground,
+  LightAccent,
+  LightBackground,
+} from '../styles/notifTheme';
 
 interface ThemeContextType {
   settings: AppSettings;
@@ -15,6 +23,8 @@ interface ThemeContextType {
   // Helper functions to get current values
   getColors: () => any;
   getFontSize: (size: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | 'xxl' | 'xxxl') => number;
+  // Get NotiF-style themed colors based on user preferences
+  getThemedColors: (isDark: boolean) => ThemeColors;
 }
 
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -25,6 +35,8 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     fontSize: 'medium',
     fontFamily: 'serif',
     defaultView: 'all',
+    darkAccent: 'orange',
+    darkBackground: 'true-black',
   });
   const [isLoading, setIsLoading] = useState(true);
   const [systemTheme, setSystemTheme] = useState(Appearance.getColorScheme());
@@ -84,8 +96,16 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return Math.round(baseSizes[size as keyof typeof baseSizes] * multiplier);
   };
 
+  const getThemedColors = (isDark: boolean): ThemeColors => {
+    const darkAccent = (settings.darkAccent as DarkAccent) || 'orange';
+    const darkBackground = (settings.darkBackground as DarkBackground) || 'true-black';
+    const lightAccent = (settings.lightAccent as LightAccent) || 'orange';
+    const lightBackground = (settings.lightBackground as LightBackground) || 'pure-white';
+    return getThemeColors(isDark, lightAccent, lightBackground, darkAccent, darkBackground);
+  };
+
   return (
-    <ThemeContext.Provider value={{ settings, updateTheme, isLoading, getColors, getFontSize }}>
+    <ThemeContext.Provider value={{ settings, updateTheme, isLoading, getColors, getFontSize, getThemedColors }}>
       {children}
     </ThemeContext.Provider>
   );

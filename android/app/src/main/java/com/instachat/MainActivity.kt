@@ -10,10 +10,6 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 class MainActivity : ReactActivity() {
 
-  companion object {
-    private var pendingShareIntent: String? = null
-  }
-
   /**
    * Returns the name of the main component registered from JavaScript. This is used to schedule
    * rendering of the component.
@@ -53,22 +49,6 @@ class MainActivity : ReactActivity() {
   }
 
   /**
-   * Resume the activity and send any pending share intent
-   */
-  override fun onResume() {
-    super.onResume()
-    // Try to send pending intent if React is now ready
-    if (pendingShareIntent != null) {
-      val module = SharedIntentModule.getInstance()
-      if (module != null && module.hasReactContext()) {
-        Log.d("ShareIntent", "Sending pending share intent: $pendingShareIntent")
-        module.onShareIntentReceived(pendingShareIntent!!)
-        pendingShareIntent = null
-      }
-    }
-  }
-
-  /**
    * Safely handle share intent - queue if React isn't ready yet
    */
   private fun handleShareIntentSafely(intent: Intent) {
@@ -81,9 +61,9 @@ class MainActivity : ReactActivity() {
       if (module != null && module.hasReactContext()) {
         module.onShareIntentReceived(sharedText)
       } else {
-        // Queue for later when React is ready
-        pendingShareIntent = sharedText
-        Log.d("ShareIntent", "React context not ready, queuing intent for later")
+        // Store in SharedIntentModule for React Native to retrieve later
+        SharedIntentModule.setPendingShareUrl(sharedText)
+        Log.d("ShareIntent", "React context not ready, storing for later retrieval")
       }
     }
   }

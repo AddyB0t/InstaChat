@@ -16,6 +16,7 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
 
   companion object {
     private var _instance: SharedIntentModule? = null
+    private var _pendingShareUrl: String? = null
 
     @JvmStatic
     fun initialize(module: SharedIntentModule) {
@@ -24,6 +25,20 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
 
     @JvmStatic
     fun getInstance(): SharedIntentModule? = _instance
+
+    @JvmStatic
+    fun setPendingShareUrl(url: String?) {
+      _pendingShareUrl = url
+      Log.d("SharedIntentModule", "Pending share URL set: $url")
+    }
+
+    @JvmStatic
+    fun getPendingShareUrl(): String? = _pendingShareUrl
+
+    @JvmStatic
+    fun clearPendingShareUrl() {
+      _pendingShareUrl = null
+    }
   }
 
   init {
@@ -78,5 +93,20 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun getSharedUrl(promise: com.facebook.react.bridge.Promise) {
     promise.resolve("URL")
+  }
+
+  /**
+   * Check for pending share URL (called from React Native on app start)
+   */
+  @ReactMethod
+  fun checkPendingShareUrl(promise: com.facebook.react.bridge.Promise) {
+    val pendingUrl = _pendingShareUrl
+    if (pendingUrl != null) {
+      Log.d("SharedIntentModule", "Returning pending share URL: $pendingUrl")
+      clearPendingShareUrl()
+      promise.resolve(pendingUrl)
+    } else {
+      promise.resolve(null)
+    }
   }
 }

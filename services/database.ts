@@ -4,6 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PlatformType } from '../styles/platformColors';
 
 export interface Article {
   id: string;
@@ -19,6 +20,14 @@ export interface Article {
   tags?: string[];
   isUnread?: boolean;
   isFavorite?: boolean;
+  isBookmarked?: boolean;
+
+  // Platform Fields
+  platform?: PlatformType;
+  platformColor?: string;
+
+  // Bundle Fields
+  bundleId?: string;
 
   // AI Enhancement Fields
   aiEnhanced?: boolean;
@@ -44,11 +53,26 @@ export interface Tag {
   articleCount: number;
 }
 
+export interface Bundle {
+  id: string;
+  articleIds: string[];
+  createdAt: string;
+  temporary: boolean; // Auto-clears after viewing
+}
+
 export interface AppSettings {
   theme: 'auto' | 'light' | 'dark';
   fontSize: 'small' | 'medium' | 'large';
   fontFamily: 'serif' | 'sans-serif';
   defaultView: 'all' | 'unread';
+  platformFilter?: PlatformType | 'all'; // Platform filter setting
+  sortBy?: 'random' | 'date' | 'platform'; // Sort preference
+  // Dark mode customization
+  darkAccent?: 'orange' | 'cyan' | 'lime';
+  darkBackground?: 'true-black' | 'matte-gray' | 'midnight';
+  // Light mode customization
+  lightAccent?: 'orange' | 'blue' | 'green';
+  lightBackground?: 'pure-white' | 'soft-gray' | 'ice-blue';
 }
 
 const ARTICLES_KEY = 'instachat_articles';
@@ -130,10 +154,11 @@ export const getArticle = async (id: string): Promise<Article | null> => {
 /**
  * Delete article
  */
-export const deleteArticle = async (id: string): Promise<void> => {
+export const deleteArticle = async (id: string | number): Promise<void> => {
   try {
     const articles = await getAllArticles();
-    const filtered = articles.filter(a => a.id !== id);
+    const idStr = String(id);
+    const filtered = articles.filter(a => String(a.id) !== idStr);
     await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(filtered));
     console.log('[Database] Article deleted:', id);
   } catch (error) {
@@ -163,12 +188,15 @@ export const searchArticles = async (query: string): Promise<Article[]> => {
 /**
  * Update article
  */
-export const updateArticle = async (id: string, updates: Partial<Article>): Promise<Article | null> => {
+export const updateArticle = async (id: string | number, updates: Partial<Article>): Promise<Article | null> => {
   try {
     const articles = await getAllArticles();
-    const index = articles.findIndex(a => a.id === id);
+    // Convert to string for comparison (handle both string and number IDs)
+    const idStr = String(id);
+    const index = articles.findIndex(a => String(a.id) === idStr);
 
     if (index === -1) {
+      console.error('[Database] Article not found for ID:', id);
       throw new Error('Article not found');
     }
 
@@ -176,7 +204,7 @@ export const updateArticle = async (id: string, updates: Partial<Article>): Prom
     articles[index] = updated;
 
     await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(articles));
-    console.log('[Database] Article updated:', id);
+    console.log('[Database] Article updated:', id, 'Updates:', Object.keys(updates));
 
     return updated;
   } catch (error) {
@@ -195,7 +223,9 @@ export const updateArticleWithAiEnhancement = async (
   aiTags: string[],
   aiCategory: string,
   aiSentiment: 'positive' | 'neutral' | 'negative',
-  readingTimeMinutes: number
+  readingTimeMinutes: number,
+  platform?: PlatformType,
+  platformColor?: string
 ): Promise<Article | null> => {
   try {
     console.log('[Database] Updating article with AI enhancement:', id);
@@ -207,6 +237,8 @@ export const updateArticleWithAiEnhancement = async (
       aiCategory,
       aiSentiment,
       readingTimeMinutes,
+      platform,
+      platformColor,
     });
   } catch (error) {
     console.error('[Database] Error updating article with AI enhancement:', error);
@@ -275,9 +307,79 @@ export const deleteFolder = async (id: string): Promise<void> => {
     const folders = await getAllFolders();
     const filtered = folders.filter(f => f.id !== id);
     await AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify(filtered));
+    // Also remove folderId from articles in this folder
+    const articles = await getAllArticles();
+    const updatedArticles = articles.map(a =>
+      a.folderId === id ? { ...a, folderId: undefined } : a
+    );
+    await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(updatedArticles));
     console.log('[Database] Folder deleted:', id);
   } catch (error) {
     console.error('[Database] Error deleting folder:', error);
+    throw error;
+  }
+};
+
+export const getFolderByName = async (name: string): Promise<Folder | null> => {
+  try {
+    const folders = await getAllFolders();
+    return folders.find(f => f.name.toLowerCase() === name.toLowerCase()) || null;
+  } catch (error) {
+    console.error('[Database] Error getting folder by name:', error);
+    return null;
+  }
+};
+
+export const addArticlesToFolder = async (folderId: string, articleIds: string[]): Promise<void> => {
+  try {
+    const articles = await getAllArticles();
+    const updatedArticles = articles.map(a =>
+      articleIds.includes(a.id) ? { ...a, folderId } : a
+    );
+    await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(updatedArticles));
+    // Update folder article count
+    await updateFolderArticleCount(folderId);
+    console.log('[Database] Added articles to folder:', folderId, articleIds);
+  } catch (error) {
+    console.error('[Database] Error adding articles to folder:', error);
+    throw error;
+  }
+};
+
+export const getArticlesByFolder = async (folderId: string): Promise<Article[]> => {
+  try {
+    const articles = await getAllArticles();
+    return articles.filter(a => a.folderId === folderId);
+  } catch (error) {
+    console.error('[Database] Error getting articles by folder:', error);
+    return [];
+  }
+};
+
+export const updateFolderArticleCount = async (folderId: string): Promise<void> => {
+  try {
+    const folders = await getAllFolders();
+    const articles = await getAllArticles();
+    const count = articles.filter(a => a.folderId === folderId).length;
+    const updatedFolders = folders.map(f =>
+      f.id === folderId ? { ...f, articleCount: count } : f
+    );
+    await AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify(updatedFolders));
+  } catch (error) {
+    console.error('[Database] Error updating folder article count:', error);
+  }
+};
+
+export const updateFolder = async (id: string, updates: Partial<Folder>): Promise<void> => {
+  try {
+    const folders = await getAllFolders();
+    const updatedFolders = folders.map(f =>
+      f.id === id ? { ...f, ...updates } : f
+    );
+    await AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify(updatedFolders));
+    console.log('[Database] Folder updated:', id);
+  } catch (error) {
+    console.error('[Database] Error updating folder:', error);
     throw error;
   }
 };
@@ -331,6 +433,10 @@ const defaultSettings: AppSettings = {
   fontSize: 'medium',
   fontFamily: 'serif',
   defaultView: 'all',
+  darkAccent: 'orange',
+  darkBackground: 'true-black',
+  lightAccent: 'orange',
+  lightBackground: 'pure-white',
 };
 
 export const getSettings = async (): Promise<AppSettings> => {
@@ -397,3 +503,72 @@ export const addTagsToAllArticles = async (tagsToAdd: string[]): Promise<number>
     throw error;
   }
 };
+
+/**
+ * Get articles by tag name
+ */
+export const getArticlesByTag = async (tagName: string): Promise<Article[]> => {
+  try {
+    const articles = await getAllArticles();
+    return articles.filter(article =>
+      article.tags?.includes(tagName) || false
+    );
+  } catch (error) {
+    console.error('[Database] Error getting articles by tag:', error);
+    return [];
+  }
+};
+
+/**
+ * Get all unique user tags from articles
+ */
+export const getAllUserTags = async (): Promise<string[]> => {
+  try {
+    const articles = await getAllArticles();
+    const allTags = new Set<string>();
+    articles.forEach(article => {
+      article.tags?.forEach(tag => allTags.add(tag));
+    });
+    return Array.from(allTags);
+  } catch (error) {
+    console.error('[Database] Error getting user tags:', error);
+    return [];
+  }
+};
+
+/**
+ * Get tag statistics (tag name -> article count)
+ */
+export const getTagStats = async (): Promise<{name: string; count: number}[]> => {
+  try {
+    const articles = await getAllArticles();
+    const tagCounts = new Map<string, number>();
+
+    articles.forEach(article => {
+      article.tags?.forEach(tag => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
+    });
+
+    return Array.from(tagCounts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  } catch (error) {
+    console.error('[Database] Error getting tag stats:', error);
+    return [];
+  }
+};
+
+/**
+ * Get all bookmarked articles
+ */
+export const getBookmarkedArticles = async (): Promise<Article[]> => {
+  try {
+    const articles = await getAllArticles();
+    return articles.filter(article => article.isBookmarked === true);
+  } catch (error) {
+    console.error('[Database] Error getting bookmarked articles:', error);
+    return [];
+  }
+};
+

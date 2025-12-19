@@ -8,6 +8,7 @@ import axios from 'axios';
 import { OPENAI_API_KEY as ENV_API_KEY, OPENAI_MODEL } from '@env';
 import { getOpenAiApiKey } from './keychainService';
 import { Article, ExtractedArticleData } from './database';
+import { PlatformType, detectPlatformFromUrl, getPlatformConfig } from '../styles/platformColors';
 
 interface EnhancedContent {
   summary: string;
@@ -16,6 +17,8 @@ interface EnhancedContent {
   category: string;
   sentiment: 'positive' | 'neutral' | 'negative';
   readingTimeMinutes: number;
+  platform: PlatformType;
+  platformColor: string;
 }
 
 interface ExtractedArticleDataWithEnhancement extends ExtractedArticleData {
@@ -53,9 +56,10 @@ const getActiveApiKey = async (): Promise<string> => {
 /**
  * Create a comprehensive prompt for article analysis
  */
-const createAnalysisPrompt = (title: string, content: string): string => {
+const createAnalysisPrompt = (title: string, content: string, url: string): string => {
   return `You are an expert content analyst. Analyze the following article and provide high-quality structured information.
 
+ARTICLE URL: ${url}
 ARTICLE TITLE: ${title}
 
 ARTICLE CONTENT:
@@ -66,19 +70,21 @@ Please provide a JSON response with EXACTLY this structure (no markdown, no code
 {
   "summary": "A 2-3 sentence concise summary capturing the main idea and key takeaway",
   "keyPoints": ["First major point discussed", "Second major point", "Third major point"],
-  "suggestedTags": ["tag1", "tag2", "tag3", "tag4"],
+  "suggestedTags": ["tag1", "tag2", "tag3"],
   "category": "Technology|Science|Business|Health|Politics|Entertainment|Sports|Education|Other",
   "sentiment": "positive|neutral|negative",
-  "readingTimeMinutes": 3
+  "readingTimeMinutes": 3,
+  "platform": "twitter|facebook|instagram|youtube|chrome|safari|other"
 }
 
 IMPORTANT GUIDELINES:
 - Summary: Clear, informative, 2-3 sentences max. Highlight the core message.
 - Key Points: 3-5 bullet points of the most important information. Make them actionable or insightful.
-- Tags: 4-6 relevant, searchable tags. Use lowercase. Make them specific to the content.
+- Tags: Maximum 3 relevant, searchable tags. Use lowercase. Make them specific to the content.
 - Category: Pick the SINGLE most relevant category from the list provided.
 - Sentiment: Analyze the overall tone (positive=encouraging/optimistic, neutral=factual, negative=critical/cautionary).
 - Reading Time: Estimate in minutes based on content length and complexity.
+- Platform: Detect the content source platform from URL and content. Use "twitter" for X/Twitter, "chrome" or "safari" for web articles, or "other" if uncertain.
 
 Return ONLY valid JSON. No additional text.`;
 };
@@ -86,7 +92,7 @@ Return ONLY valid JSON. No additional text.`;
 /**
  * Parse AI response and extract structured data
  */
-const parseAiResponse = (responseText: string): EnhancedContent | null => {
+const parseAiResponse = (responseText: string, url: string): EnhancedContent | null => {
   try {
     // Try to extract JSON from the response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -103,17 +109,33 @@ const parseAiResponse = (responseText: string): EnhancedContent | null => {
       return null;
     }
 
+    // Detect platform from URL first, then use AI's suggestion as fallback
+    let detectedPlatform = detectPlatformFromUrl(url);
+
+    // If URL detection returns 'other', try to use AI's platform detection
+    if (detectedPlatform === 'other' && parsed.platform) {
+      const aiPlatform = String(parsed.platform).toLowerCase() as PlatformType;
+      const validPlatforms: PlatformType[] = ['twitter', 'facebook', 'instagram', 'youtube', 'chrome', 'safari', 'other'];
+      if (validPlatforms.includes(aiPlatform)) {
+        detectedPlatform = aiPlatform;
+      }
+    }
+
+    const platformConfig = getPlatformConfig(detectedPlatform);
+
     return {
       summary: String(parsed.summary).substring(0, 500),
       keyPoints: Array.isArray(parsed.keyPoints)
         ? parsed.keyPoints.slice(0, 5).map((p: any) => String(p).substring(0, 200))
         : [],
       suggestedTags: Array.isArray(parsed.suggestedTags)
-        ? parsed.suggestedTags.slice(0, 6).map((t: any) => String(t).toLowerCase().trim())
+        ? parsed.suggestedTags.slice(0, 3).map((t: any) => String(t).toLowerCase().trim())
         : [],
       category: String(parsed.category).substring(0, 50),
       sentiment: ['positive', 'neutral', 'negative'].includes(parsed.sentiment) ? parsed.sentiment : 'neutral',
       readingTimeMinutes: Math.max(1, Math.min(60, parseInt(parsed.readingTimeMinutes) || 3)),
+      platform: detectedPlatform,
+      platformColor: platformConfig.color,
     };
   } catch (error) {
     console.error('[AIEnhancer] Error parsing AI response:', error);
@@ -126,14 +148,16 @@ const parseAiResponse = (responseText: string): EnhancedContent | null => {
  */
 export const enhanceArticleContent = async (
   title: string,
-  content: string
+  content: string,
+  url: string
 ): Promise<EnhancedContent | null> => {
   try {
     console.log('[AIEnhancer] Starting AI enhancement...');
+    console.log('[AIEnhancer] URL:', url);
 
     // Validate inputs
-    if (!title || !content) {
-      throw new Error('Title and content are required for AI enhancement');
+    if (!title || !content || !url) {
+      throw new Error('Title, content, and URL are required for AI enhancement');
     }
 
     // Get API key
@@ -142,7 +166,7 @@ export const enhanceArticleContent = async (
       throw new Error('No valid API key available');
     }
 
-    const prompt = createAnalysisPrompt(title, content);
+    const prompt = createAnalysisPrompt(title, content, url);
 
     console.log('[AIEnhancer] Calling OpenAI API...');
     const response = await axios.post(
@@ -178,13 +202,14 @@ export const enhanceArticleContent = async (
     console.log('[AIEnhancer] Response text received, length:', responseText.length);
 
     // Parse the response
-    const enhanced = parseAiResponse(responseText);
+    const enhanced = parseAiResponse(responseText, url);
     if (!enhanced) {
       console.warn('[AIEnhancer] Failed to parse AI response, returning null');
       return null;
     }
 
     console.log('[AIEnhancer] Article enhanced successfully');
+    console.log('[AIEnhancer] Platform detected:', enhanced.platform);
     return enhanced;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -203,7 +228,7 @@ export const enhanceArticle = async (
   try {
     console.log('[AIEnhancer] Enhancing article:', article.id);
 
-    const enhanced = await enhanceArticleContent(article.title, article.content);
+    const enhanced = await enhanceArticleContent(article.title, article.content, article.url);
     if (!enhanced) {
       return null;
     }
@@ -216,6 +241,8 @@ export const enhanceArticle = async (
       aiCategory: enhanced.category,
       aiSentiment: enhanced.sentiment,
       readingTimeMinutes: enhanced.readingTimeMinutes,
+      platform: enhanced.platform,
+      platformColor: enhanced.platformColor,
       aiEnhanced: true,
     };
   } catch (error) {

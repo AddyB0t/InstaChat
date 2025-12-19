@@ -1,9 +1,9 @@
 /**
- * Settings Screen
- * Configure app appearance, collections, notifications, and account
+ * SettingsNewScreen
+ * NotiF-style settings matching reference design
  */
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,70 +11,117 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
-  useColorScheme,
   StatusBar,
+  useColorScheme,
+  Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { ThemeContext } from '../context/ThemeContext';
-import { getThemeColors } from '../styles/notifTheme';
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors } from '../styles/notifTheme';
+import { getAllArticles } from '../services/database';
 import { wp, hp, fp, ms } from '../utils/responsive';
-import { clearAllArticles, getAllArticles } from '../services/database';
 
-interface SettingsScreenProps {
+interface SettingsNewScreenProps {
   navigation: any;
 }
 
-const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
-  const { settings, updateSettings } = useContext(ThemeContext);
+// Setting Row Component - defined outside main component
+const SettingRow = ({
+  iconName,
+  iconBgColor,
+  title,
+  subtitle,
+  onPress,
+  rightElement,
+  showChevron = true,
+  colors,
+}: {
+  iconName: string;
+  iconBgColor: string;
+  title: string;
+  subtitle: string;
+  onPress?: () => void;
+  rightElement?: React.ReactNode;
+  showChevron?: boolean;
+  colors: ThemeColors;
+}) => (
+  <TouchableOpacity
+    style={styles.settingRow}
+    onPress={onPress}
+    disabled={!onPress && !rightElement}
+    activeOpacity={onPress ? 0.7 : 1}
+  >
+    <View style={[styles.iconBox, { backgroundColor: iconBgColor }]}>
+      <Icon name={iconName} size={ms(22)} color="#FFFFFF" />
+    </View>
+    <View style={styles.settingContent}>
+      <Text style={[styles.settingTitle, { color: colors.text.primary }]}>
+        {title}
+      </Text>
+      <Text style={[styles.settingSubtitle, { color: colors.text.tertiary }]}>
+        {subtitle}
+      </Text>
+    </View>
+    {rightElement}
+    {showChevron && !rightElement && (
+      <Icon name="chevron-forward" size={ms(20)} color={colors.text.tertiary} />
+    )}
+  </TouchableOpacity>
+);
+
+// Section Header Component - defined outside main component
+const SectionHeader = ({ title, colors }: { title: string; colors: ThemeColors }) => (
+  <Text style={[styles.sectionHeader, { color: colors.text.primary }]}>
+    {title}
+  </Text>
+);
+
+export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation }) => {
+  const { settings, updateTheme, getThemedColors } = useTheme();
   const systemColorScheme = useColorScheme();
-  const [priorityCount, setPriorityCount] = useState(0);
+  const insets = useSafeAreaInsets();
+
+  const [bookmarkedCount, setBookmarkedCount] = useState(0);
 
   const isDark =
     settings.theme === 'dark' ||
     (settings.theme === 'auto' && systemColorScheme === 'dark');
 
-  const colors = getThemeColors(isDark);
+  const colors = getThemedColors(isDark);
 
   useEffect(() => {
-    loadPriorityCount();
-  }, []);
+    loadBookmarkedCount();
+  }, [settings]);
 
-  const loadPriorityCount = async () => {
+  const loadBookmarkedCount = async () => {
     try {
       const articles = await getAllArticles();
-      const count = articles.filter(a => a.isFavorite).length;
-      setPriorityCount(count);
+      const count = articles.filter(a => a.isBookmarked).length;
+      setBookmarkedCount(count);
     } catch (error) {
-      console.error('Error loading priority count:', error);
+      console.error('Error loading bookmarked count:', error);
     }
   };
 
   const handleThemePress = () => {
-    // Navigate to theme selection screen or show modal
-    Alert.alert(
-      'Select Theme',
-      'Choose your preferred theme',
-      [
-        { text: 'Auto (System)', onPress: () => updateSettings({ theme: 'auto' }) },
-        { text: 'Light', onPress: () => updateSettings({ theme: 'light' }) },
-        { text: 'Dark', onPress: () => updateSettings({ theme: 'dark' }) },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    navigation.navigate('ThemeCustomization');
   };
 
   const handleDarkModeToggle = (value: boolean) => {
-    updateSettings({ theme: value ? 'dark' : 'light' });
+    updateTheme('theme', value ? 'dark' : 'light');
   };
 
-  const handlePriorityPress = () => {
-    navigation.navigate('PriorityReview');
+  const handleBookmarkedPress = () => {
+    // Navigate to Library tab with bookmarked filter and grid view
+    navigation.navigate('Library', {
+      screen: 'SearchList',
+      params: { filter: 'bookmarked', viewMode: 'grid' },
+    });
   };
 
   const handleSortFilterPress = () => {
-    Alert.alert('Sort & Filter', 'Sort and filter options coming soon!');
+    navigation.navigate('SortFilter');
   };
 
   const handleNotificationsPress = () => {
@@ -88,83 +135,16 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Logout', style: 'destructive', onPress: () => {
-          // Handle logout logic
           Alert.alert('Logged out', 'You have been signed out.');
         }},
       ]
     );
   };
 
-  const handleClearData = () => {
-    Alert.alert(
-      'Clear All Data',
-      'Are you sure you want to delete all saved articles? This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear All',
-          style: 'destructive',
-          onPress: async () => {
-            await clearAllArticles();
-            Alert.alert('Success', 'All articles have been deleted');
-          },
-        },
-      ]
-    );
-  };
-
-  const SettingRow = ({
-    icon,
-    iconBgColor,
-    title,
-    subtitle,
-    onPress,
-    rightElement,
-    showChevron = true,
-  }: {
-    icon: string;
-    iconBgColor: string;
-    title: string;
-    subtitle?: string;
-    onPress?: () => void;
-    rightElement?: React.ReactNode;
-    showChevron?: boolean;
-  }) => (
-    <TouchableOpacity
-      style={[styles.settingRow, { backgroundColor: colors.background.secondary }]}
-      onPress={onPress}
-      disabled={!onPress && !rightElement}
-      activeOpacity={onPress ? 0.7 : 1}
-    >
-      <View style={[styles.settingIconBox, { backgroundColor: iconBgColor }]}>
-        <Icon name={icon} size={ms(22)} color="#FFFFFF" />
-      </View>
-      <View style={styles.settingContent}>
-        <Text style={[styles.settingTitle, { color: colors.text.primary }]}>
-          {title}
-        </Text>
-        {subtitle && (
-          <Text style={[styles.settingSubtitle, { color: colors.text.tertiary }]}>
-            {subtitle}
-          </Text>
-        )}
-      </View>
-      {rightElement}
-      {showChevron && !rightElement && (
-        <Icon name="chevron-forward" size={ms(20)} color={colors.text.tertiary} />
-      )}
-    </TouchableOpacity>
-  );
-
-  const SectionHeader = ({ title }: { title: string }) => (
-    <Text style={[styles.sectionHeader, { color: colors.text.primary }]}>
-      {title}
-    </Text>
-  );
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top', 'left', 'right']}>
+    <View style={[styles.container, { backgroundColor: colors.background.primary, paddingTop: insets.top }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -185,27 +165,29 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Appearance Section */}
-        <SectionHeader title="Appearance" />
-        <View style={styles.sectionContainer}>
+        <SectionHeader title="Appearance" colors={colors} />
+        <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
           <SettingRow
-            icon="color-palette"
+            iconName="color-palette"
             iconBgColor={colors.accent.primary}
             title="Theme"
             subtitle="Customize accent and background colors"
             onPress={handleThemePress}
+            colors={colors}
           />
           <View style={styles.rowDivider} />
           <SettingRow
-            icon="moon"
+            iconName="moon"
             iconBgColor="#1F2937"
             title="Dark Mode"
             subtitle="Switch between light and dark theme"
             showChevron={false}
+            colors={colors}
             rightElement={
               <Switch
                 value={isDark}
                 onValueChange={handleDarkModeToggle}
-                trackColor={{ false: '#3e3e3e', true: colors.accent.primary }}
+                trackColor={{ false: '#4B5563', true: colors.accent.primary }}
                 thumbColor="#FFFFFF"
               />
             }
@@ -213,71 +195,63 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         </View>
 
         {/* Collections Section */}
-        <SectionHeader title="Collections" />
-        <View style={styles.sectionContainer}>
+        <SectionHeader title="Collections" colors={colors} />
+        <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
           <SettingRow
-            icon="star"
+            iconName="bookmark"
             iconBgColor="#F59E0B"
-            title="Starred"
-            subtitle="View your starred bookmarks"
-            onPress={handlePriorityPress}
+            title="Bookmarked"
+            subtitle="View your saved bookmarks"
+            onPress={handleBookmarkedPress}
+            showChevron={bookmarkedCount === 0}
+            colors={colors}
             rightElement={
-              priorityCount > 0 ? (
-                <View style={styles.countBadgeContainer}>
+              bookmarkedCount > 0 ? (
+                <View style={styles.badgeChevronRow}>
                   <View style={[styles.countBadge, { borderColor: colors.text.tertiary }]}>
-                    <Text style={[styles.countBadgeText, { color: colors.text.secondary }]}>
-                      {priorityCount}
+                    <Text style={[styles.countText, { color: colors.text.secondary }]}>
+                      {bookmarkedCount}
                     </Text>
                   </View>
                   <Icon name="chevron-forward" size={ms(20)} color={colors.text.tertiary} />
                 </View>
               ) : undefined
             }
-            showChevron={priorityCount === 0}
           />
           <View style={styles.rowDivider} />
           <SettingRow
-            icon="funnel"
+            iconName="funnel"
             iconBgColor={colors.accent.primary}
             title="Sort & Filter"
             subtitle="Organize your bookmarks"
             onPress={handleSortFilterPress}
+            colors={colors}
           />
         </View>
 
         {/* Notifications Section */}
-        <SectionHeader title="Notifications" />
-        <View style={styles.sectionContainer}>
+        <SectionHeader title="Notifications" colors={colors} />
+        <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
           <SettingRow
-            icon="notifications"
+            iconName="notifications"
             iconBgColor={colors.accent.primary}
             title="Smart Notifications"
             subtitle="Manage reminders and review schedules"
             onPress={handleNotificationsPress}
+            colors={colors}
           />
         </View>
 
         {/* Account Section */}
-        <SectionHeader title="Account" />
-        <View style={styles.sectionContainer}>
+        <SectionHeader title="Account" colors={colors} />
+        <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
           <SettingRow
-            icon="log-out-outline"
+            iconName="log-out-outline"
             iconBgColor="#EF4444"
             title="Logout"
             subtitle="Sign out of your account"
             onPress={handleLogout}
-          />
-        </View>
-
-        {/* Data Management Section */}
-        <SectionHeader title="Data" />
-        <View style={styles.sectionContainer}>
-          <SettingRow
-            icon="trash-outline"
-            iconBgColor="#EF4444"
-            title="Clear All Data"
-            subtitle="Delete all saved articles"
-            onPress={handleClearData}
+            colors={colors}
           />
         </View>
 
@@ -291,7 +265,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -304,7 +278,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: wp(16),
-    paddingVertical: hp(16),
+    paddingVertical: hp(12),
   },
   backButton: {
     width: ms(40),
@@ -313,7 +287,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    fontSize: fp(20),
+    fontSize: fp(18),
     fontWeight: '600',
   },
   headerSpacer: {
@@ -327,13 +301,13 @@ const styles = StyleSheet.create({
     paddingBottom: hp(40),
   },
   sectionHeader: {
-    fontSize: fp(18),
+    fontSize: fp(16),
     fontWeight: '600',
     marginTop: hp(24),
-    marginBottom: hp(12),
+    marginBottom: hp(10),
     marginLeft: wp(4),
   },
-  sectionContainer: {
+  sectionCard: {
     borderRadius: ms(16),
     overflow: 'hidden',
   },
@@ -341,9 +315,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: hp(14),
-    paddingHorizontal: wp(16),
+    paddingHorizontal: wp(14),
   },
-  settingIconBox: {
+  iconBox: {
     width: ms(40),
     height: ms(40),
     borderRadius: ms(10),
@@ -355,19 +329,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    fontSize: fp(16),
+    fontSize: fp(15),
     fontWeight: '500',
   },
   settingSubtitle: {
-    fontSize: fp(13),
+    fontSize: fp(12),
     marginTop: hp(2),
   },
   rowDivider: {
     height: 1,
-    backgroundColor: 'rgba(128, 128, 128, 0.1)',
-    marginLeft: wp(70),
+    backgroundColor: 'rgba(128, 128, 128, 0.15)',
+    marginLeft: wp(68),
   },
-  countBadgeContainer: {
+  badgeChevronRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: wp(8),
@@ -378,13 +352,13 @@ const styles = StyleSheet.create({
     borderRadius: ms(12),
     borderWidth: 1,
   },
-  countBadgeText: {
+  countText: {
     fontSize: fp(14),
     fontWeight: '500',
   },
   footer: {
     alignItems: 'center',
-    paddingVertical: hp(32),
+    paddingVertical: hp(40),
   },
   footerText: {
     fontSize: fp(14),
@@ -395,5 +369,3 @@ const styles = StyleSheet.create({
     marginTop: hp(4),
   },
 });
-
-export default SettingsScreen;

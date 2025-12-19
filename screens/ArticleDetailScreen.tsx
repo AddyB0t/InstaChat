@@ -1,9 +1,10 @@
 /**
  * Article Detail Screen
  * Displays full article content with open and delete options
+ * Momentum-style aesthetic with gradient background and clean cards
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -14,16 +15,24 @@ import {
   Alert,
   Linking,
   Image,
+  StatusBar,
+  useColorScheme,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import { Article, getArticle, deleteArticle, updateArticle } from '../services/database';
 import { formatDate } from '../services/articleExtractor';
-import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
-import { useTheme } from '../context/ThemeContext';
+import { ThemeContext } from '../context/ThemeContext';
+import { wp, hp, fp, ms } from '../utils/responsive';
 
 export default function ArticleDetailScreen({ route, navigation }: any) {
-  const { getColors, getFontSize, settings } = useTheme();
-  const currentColors = getColors();
-  const fontSizeStyle = (size: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | 'xxl') => ({ fontSize: getFontSize(size), fontFamily: settings.fontFamily === 'serif' ? 'serif' : 'sans-serif' });
+  const { settings } = useContext(ThemeContext);
+  const systemColorScheme = useColorScheme();
+
+  const isDark =
+    settings.theme === 'dark' ||
+    (settings.theme === 'auto' && systemColorScheme === 'dark');
+
   // Support both 'id' and 'articleId' for backward compatibility
   const articleId = route.params?.id || route.params?.articleId;
   const [article, setArticle] = useState<Article | null>(null);
@@ -140,413 +149,547 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: currentColors.background }]}>
-        <ActivityIndicator size="large" color={currentColors.primary} style={styles.loader} />
-      </View>
+      <LinearGradient
+        colors={isDark ? ['#1A1A1A', '#0F0F0F'] : ['#FFE5F0', '#E5F0FF', '#FFF5E5']}
+        style={styles.container}
+      >
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#4A9FFF" />
+            <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
+              Loading article...
+            </Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   if (!article) {
     return (
-      <View style={[styles.container, { backgroundColor: currentColors.background }]}>
-        <Text style={[styles.errorText, { color: currentColors.error }, fontSizeStyle('base')]}>Article not found</Text>
-      </View>
+      <LinearGradient
+        colors={isDark ? ['#1A1A1A', '#0F0F0F'] : ['#FFE5F0', '#E5F0FF', '#FFF5E5']}
+        style={styles.container}
+      >
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+          <View style={styles.centered}>
+            <Text style={[styles.errorText, isDark && styles.errorTextDark]}>
+              Article not found
+            </Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: currentColors.background }]} contentContainerStyle={styles.scrollContent}>
-      {article.imageUrl && (
-        <Image
-          source={{ uri: article.imageUrl }}
-          style={styles.headerImage}
-          resizeMode="cover"
-          onError={() => console.log('[ArticleDetailScreen] Image loading failed')}
-        />
-      )}
-
-      <View style={[styles.contentContainer, { backgroundColor: currentColors.surfaceLight }]}>
-        <Text style={[styles.title, { color: currentColors.text }, fontSizeStyle('xl')]}>{article.title}</Text>
-
-        <View style={[styles.metadataContainer, { borderBottomColor: currentColors.border }]}>
-          {article.author && (
-            <View style={styles.metadataItem}>
-              <Text style={styles.metadataEmoji}>👤</Text>
-              <Text style={[styles.metadataText, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>{article.author}</Text>
-            </View>
+    <LinearGradient
+      colors={isDark ? ['#1A1A1A', '#0F0F0F'] : ['#FEFEFE', '#F5F5F7']}
+      style={styles.container}
+    >
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Article Image */}
+          {article.imageUrl && (
+            <Image
+              source={{ uri: article.imageUrl }}
+              style={styles.headerImage}
+              resizeMode="cover"
+              onError={() => console.log('[ArticleDetailScreen] Image loading failed')}
+            />
           )}
 
-          <View style={styles.metadataItem}>
-            <Text style={styles.metadataEmoji}>📅</Text>
-            <Text style={[styles.metadataText, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>{formatDate(article.savedAt)}</Text>
-          </View>
-
-          {article.publishDate && (
-            <View style={styles.metadataItem}>
-              <Text style={styles.metadataEmoji}>🕐</Text>
-              <Text style={[styles.metadataText, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>{formatDate(article.publishDate)}</Text>
-            </View>
-          )}
-        </View>
-
-        {article.summary && (
-          <View style={[styles.summaryContainer, { backgroundColor: currentColors.surface, borderLeftColor: currentColors.primary }]}>
-            <Text style={[styles.summaryTitle, { color: currentColors.text }, fontSizeStyle('sm')]}>Summary</Text>
-            <Text style={[styles.summaryText, { color: currentColors.textSecondary }, fontSizeStyle('sm')]}>{article.summary}</Text>
-          </View>
-        )}
-
-        {article.aiEnhanced && article.aiSummary && (
-          <View style={[styles.aiEnhancedContainer, { backgroundColor: currentColors.primary + '15', borderLeftColor: currentColors.primary }]}>
-            <Text style={[styles.aiEnhancedTitle, { color: currentColors.primary }, fontSizeStyle('sm')]}>✨ AI Summary</Text>
-            <Text style={[styles.aiEnhancedText, { color: currentColors.text }, fontSizeStyle('sm')]}>{article.aiSummary}</Text>
-
-            {article.aiKeyPoints && article.aiKeyPoints.length > 0 && (
-              <View style={styles.keyPointsSection}>
-                <Text style={[styles.keyPointsTitle, { color: currentColors.primary }, fontSizeStyle('xs')]}>Key Points:</Text>
-                {article.aiKeyPoints.map((point, index) => (
-                  <Text key={index} style={[styles.keyPoint, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>
-                    • {point}
-                  </Text>
-                ))}
-              </View>
-            )}
-
-            <View style={styles.aiMetadataRow}>
-              {article.aiCategory && (
-                <View style={[styles.aiMetadataItem, { backgroundColor: currentColors.surface }]}>
-                  <Text style={[styles.aiMetadataLabel, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>Category</Text>
-                  <Text style={[styles.aiMetadataValue, { color: currentColors.text }, fontSizeStyle('xs')]}>{article.aiCategory}</Text>
-                </View>
-              )}
-              {article.readingTimeMinutes && (
-                <View style={[styles.aiMetadataItem, { backgroundColor: currentColors.surface }]}>
-                  <Text style={[styles.aiMetadataLabel, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>Reading Time</Text>
-                  <Text style={[styles.aiMetadataValue, { color: currentColors.text }, fontSizeStyle('xs')]}>{article.readingTimeMinutes} min</Text>
-                </View>
-              )}
-              {article.aiSentiment && (
-                <View style={[styles.aiMetadataItem, { backgroundColor: currentColors.surface }]}>
-                  <Text style={[styles.aiMetadataLabel, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>Sentiment</Text>
-                  <Text style={[styles.aiMetadataValue, { color: currentColors.text }, fontSizeStyle('xs')]}>
-                    {article.aiSentiment === 'positive' ? '😊' : article.aiSentiment === 'negative' ? '😞' : '😐'} {article.aiSentiment}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {article.aiTags && article.aiTags.length > 0 && (
-              <View style={styles.aiTagsContainer}>
-                {article.aiTags.map((tag, index) => (
-                  <View key={index} style={[styles.aiTag, { backgroundColor: currentColors.primary + '25' }]}>
-                    <Text style={[styles.aiTagText, { color: currentColors.primary }, fontSizeStyle('xs')]}>#{tag}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: currentColors.primary }]}
-            onPress={handleOpenInBrowser}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonEmoji}>🌐</Text>
-            <Text style={[styles.actionButtonText, fontSizeStyle('xs')]}>Open</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: currentColors.primary }]}
-            onPress={handleToggleReadStatus}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonEmoji}>{article.isUnread ? '👁️' : '✓'}</Text>
-            <Text style={[styles.actionButtonText, fontSizeStyle('xs')]}>
-              {article.isUnread ? 'Read' : 'Unread'}
+          {/* Main Content Card */}
+          <View style={[styles.contentCard, isDark && styles.contentCardDark]}>
+            {/* Title */}
+            <Text style={[styles.title, isDark && styles.titleDark]}>
+              {article.title}
             </Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: currentColors.primary }]}
-            onPress={handleCopyUrl}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonEmoji}>📋</Text>
-            <Text style={[styles.actionButtonText, fontSizeStyle('xs')]}>Copy</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Metadata */}
+            <View style={styles.metadataContainer}>
+              {article.author && (
+                <View style={styles.metadataItem}>
+                  <Text style={styles.metadataEmoji}>👤</Text>
+                  <Text style={[styles.metadataText, isDark && styles.metadataTextDark]}>
+                    {article.author}
+                  </Text>
+                </View>
+              )}
 
-        <TouchableOpacity
-          style={[styles.bookmarkButton, article?.isBookmarked && { backgroundColor: currentColors.warning }]}
-          onPress={handleToggleBookmark}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.bookmarkEmoji}>{article?.isBookmarked ? '⭐' : '☆'}</Text>
-          <Text style={[styles.bookmarkText, article?.isBookmarked && { color: currentColors.warning }]}>
-            {article?.isBookmarked ? 'Bookmarked' : 'Bookmark'}
-          </Text>
-        </TouchableOpacity>
+              <View style={styles.metadataItem}>
+                <Text style={styles.metadataEmoji}>📅</Text>
+                <Text style={[styles.metadataText, isDark && styles.metadataTextDark]}>
+                  {formatDate(article.savedAt)}
+                </Text>
+              </View>
 
-        <View style={[styles.urlContainer, { backgroundColor: currentColors.surface, borderLeftColor: currentColors.primary }]}>
-          <Text style={[styles.urlLabel, { color: currentColors.textSecondary }, fontSizeStyle('xs')]}>Article URL:</Text>
-          <Text style={[styles.urlText, { color: currentColors.primaryLight }, fontSizeStyle('xs')]} selectable>
-            {article.url}
-          </Text>
-        </View>
+              {article.publishDate && (
+                <View style={styles.metadataItem}>
+                  <Text style={styles.metadataEmoji}>🕐</Text>
+                  <Text style={[styles.metadataText, isDark && styles.metadataTextDark]}>
+                    {formatDate(article.publishDate)}
+                  </Text>
+                </View>
+              )}
+            </View>
 
-        <TouchableOpacity
-          style={[styles.deleteButton, { backgroundColor: currentColors.error }]}
-          onPress={handleDeleteArticle}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.deleteButtonEmoji}>🗑️</Text>
-          <Text style={[styles.deleteButtonText, fontSizeStyle('sm')]}>Delete Article</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+            {/* Summary Section */}
+            {article.summary && (
+              <View style={[styles.summaryContainer, isDark && styles.summaryContainerDark]}>
+                <Text style={[styles.summaryTitle, isDark && styles.summaryTitleDark]}>
+                  Summary
+                </Text>
+                <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
+                  {article.summary}
+                </Text>
+              </View>
+            )}
+
+            {/* AI Summary Section */}
+            {article.aiEnhanced && article.aiSummary && (
+              <View style={[styles.aiEnhancedContainer, isDark && styles.aiEnhancedContainerDark]}>
+                <Text style={styles.aiEnhancedTitle}>✨ AI Summary</Text>
+                <Text style={[styles.aiEnhancedText, isDark && styles.aiEnhancedTextDark]}>
+                  {article.aiSummary}
+                </Text>
+
+                {/* Key Points */}
+                {article.aiKeyPoints && article.aiKeyPoints.length > 0 && (
+                  <View style={styles.keyPointsSection}>
+                    <Text style={styles.keyPointsTitle}>Key Points:</Text>
+                    {article.aiKeyPoints.map((point, index) => (
+                      <Text
+                        key={index}
+                        style={[styles.keyPoint, isDark && styles.keyPointDark]}
+                      >
+                        • {point}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+
+                {/* Metadata Pills */}
+                <View style={styles.aiMetadataRow}>
+                  {article.readingTimeMinutes && (
+                    <View style={[styles.aiMetadataItem, isDark && styles.aiMetadataItemDark]}>
+                      <Text style={[styles.aiMetadataLabel, isDark && styles.aiMetadataLabelDark]}>
+                        Reading Time
+                      </Text>
+                      <Text style={[styles.aiMetadataValue, isDark && styles.aiMetadataValueDark]}>
+                        {article.readingTimeMinutes} min
+                      </Text>
+                    </View>
+                  )}
+                  {article.aiSentiment && (
+                    <View style={[styles.aiMetadataItem, isDark && styles.aiMetadataItemDark]}>
+                      <Text style={[styles.aiMetadataLabel, isDark && styles.aiMetadataLabelDark]}>
+                        Sentiment
+                      </Text>
+                      <Text style={[styles.aiMetadataValue, isDark && styles.aiMetadataValueDark]}>
+                        {article.aiSentiment === 'positive' ? '😊' : article.aiSentiment === 'negative' ? '😞' : '😐'}{' '}
+                        {article.aiSentiment}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Action Buttons Row */}
+            <View style={styles.actionsContainer}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleOpenInBrowser}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.actionButtonEmoji}>🌐</Text>
+                <Text style={styles.actionButtonText}>Open</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleToggleReadStatus}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.actionButtonEmoji}>{article.isUnread ? '👁️' : '✓'}</Text>
+                <Text style={styles.actionButtonText}>
+                  {article.isUnread ? 'Read' : 'Unread'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleCopyUrl}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.actionButtonEmoji}>📋</Text>
+                <Text style={styles.actionButtonText}>Copy</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Bookmark Button */}
+            <TouchableOpacity
+              style={[
+                styles.bookmarkButton,
+                article?.isBookmarked && styles.bookmarkButtonActive,
+              ]}
+              onPress={handleToggleBookmark}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.bookmarkEmoji}>{article?.isBookmarked ? '⭐' : '☆'}</Text>
+              <Text style={styles.bookmarkText}>
+                {article?.isBookmarked ? 'Bookmarked' : 'Bookmark'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Article URL */}
+            <View style={[styles.urlContainer, isDark && styles.urlContainerDark]}>
+              <Text style={[styles.urlLabel, isDark && styles.urlLabelDark]}>Article URL:</Text>
+              <Text style={styles.urlText} selectable>
+                {article.url}
+              </Text>
+            </View>
+
+            {/* Delete Button */}
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={handleDeleteArticle}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.deleteButtonEmoji}>🗑️</Text>
+              <Text style={styles.deleteButtonText}>Delete Article</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.dark.background,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.lg,
+    paddingBottom: hp(100),
   },
-  loader: {
+  centered: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: wp(40),
+  },
+  loadingText: {
+    fontSize: fp(14),
+    color: '#6B7280',
+    marginTop: hp(10),
+  },
+  loadingTextDark: {
+    color: '#9CA3AF',
   },
   errorText: {
-    flex: 1,
+    fontSize: fp(16),
+    color: '#EF4444',
     textAlign: 'center',
-    textAlignVertical: 'center',
-    fontSize: fontSize.base,
-    color: colors.dark.error,
+  },
+  errorTextDark: {
+    color: '#F87171',
   },
   headerImage: {
     width: '100%',
-    height: 250,
-    backgroundColor: colors.dark.surface,
+    height: hp(200),
+    marginBottom: hp(12),
   },
-  contentContainer: {
-    backgroundColor: colors.dark.surfaceLight,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
+  contentCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    marginHorizontal: wp(16),
+    marginBottom: hp(16),
+    padding: wp(16),
+    borderRadius: ms(14),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: hp(2) },
+    shadowOpacity: 0.08,
+    shadowRadius: ms(8),
+    elevation: 3,
+  },
+  contentCardDark: {
+    backgroundColor: 'rgba(26, 26, 26, 0.9)',
   },
   title: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
-    color: colors.dark.text,
-    marginBottom: spacing.md,
-    lineHeight: 32,
+    fontSize: fp(20),
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: hp(12),
+    lineHeight: fp(28),
+  },
+  titleDark: {
+    color: '#F9FAFB',
   },
   metadataContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: spacing.lg,
-    paddingBottom: spacing.md,
+    marginBottom: hp(16),
+    paddingBottom: hp(12),
     borderBottomWidth: 1,
-    borderBottomColor: colors.dark.border,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   metadataItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: spacing.lg,
-    marginBottom: spacing.sm,
+    marginRight: wp(12),
+    marginBottom: hp(6),
   },
   metadataEmoji: {
-    fontSize: fontSize.sm,
-    marginRight: spacing.sm,
+    fontSize: fp(12),
+    marginRight: wp(4),
   },
   metadataText: {
-    fontSize: fontSize.xs,
-    color: colors.dark.textSecondary,
-    marginLeft: spacing.sm,
+    fontSize: fp(12),
+    color: '#6B7280',
+  },
+  metadataTextDark: {
+    color: '#9CA3AF',
   },
   summaryContainer: {
-    backgroundColor: colors.dark.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.dark.primary,
+    backgroundColor: 'rgba(74, 159, 255, 0.08)',
+    padding: wp(14),
+    borderRadius: ms(10),
+    marginBottom: hp(12),
+    borderLeftWidth: 3,
+    borderLeftColor: '#4A9FFF',
+  },
+  summaryContainerDark: {
+    backgroundColor: 'rgba(74, 159, 255, 0.15)',
   },
   summaryTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.dark.text,
-    marginBottom: spacing.md,
+    fontSize: fp(13),
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: hp(6),
+  },
+  summaryTitleDark: {
+    color: '#F9FAFB',
   },
   summaryText: {
-    fontSize: fontSize.sm,
-    color: colors.dark.textSecondary,
-    lineHeight: 20,
+    fontSize: fp(13),
+    color: '#6B7280',
+    lineHeight: fp(18),
+  },
+  summaryTextDark: {
+    color: '#9CA3AF',
   },
   aiEnhancedContainer: {
-    backgroundColor: colors.dark.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.dark.primary,
+    backgroundColor: 'rgba(74, 159, 255, 0.08)',
+    padding: wp(14),
+    borderRadius: ms(10),
+    marginBottom: hp(12),
+    borderLeftWidth: 3,
+    borderLeftColor: '#4A9FFF',
+  },
+  aiEnhancedContainerDark: {
+    backgroundColor: 'rgba(74, 159, 255, 0.15)',
   },
   aiEnhancedTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.dark.primary,
-    marginBottom: spacing.md,
+    fontSize: fp(13),
+    fontWeight: '600',
+    color: '#4A9FFF',
+    marginBottom: hp(10),
   },
   aiEnhancedText: {
-    fontSize: fontSize.sm,
-    color: colors.dark.text,
-    lineHeight: 20,
-    marginBottom: spacing.md,
+    fontSize: fp(13),
+    color: '#111827',
+    lineHeight: fp(18),
+    marginBottom: hp(10),
+  },
+  aiEnhancedTextDark: {
+    color: '#F9FAFB',
   },
   keyPointsSection: {
-    marginBottom: spacing.md,
+    marginBottom: hp(10),
   },
   keyPointsTitle: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.dark.primary,
-    marginBottom: spacing.sm,
+    fontSize: fp(12),
+    fontWeight: '600',
+    color: '#4A9FFF',
+    marginBottom: hp(6),
   },
   keyPoint: {
-    fontSize: fontSize.xs,
-    color: colors.dark.textSecondary,
-    lineHeight: 18,
-    marginBottom: spacing.xs,
+    fontSize: fp(12),
+    color: '#6B7280',
+    lineHeight: fp(16),
+    marginBottom: hp(3),
+  },
+  keyPointDark: {
+    color: '#9CA3AF',
   },
   aiMetadataRow: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
-    gap: spacing.sm,
+    marginBottom: hp(10),
+    gap: wp(6),
     flexWrap: 'wrap',
   },
   aiMetadataItem: {
-    backgroundColor: colors.dark.surface,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    paddingVertical: hp(6),
+    paddingHorizontal: wp(10),
+    borderRadius: ms(6),
     alignItems: 'center',
   },
+  aiMetadataItemDark: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
   aiMetadataLabel: {
-    fontSize: fontSize.xs,
-    color: colors.dark.textSecondary,
+    fontSize: fp(10),
+    color: '#6B7280',
+    marginBottom: hp(1),
+  },
+  aiMetadataLabelDark: {
+    color: '#9CA3AF',
   },
   aiMetadataValue: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.dark.text,
+    fontSize: fp(11),
+    fontWeight: '600',
+    color: '#111827',
+  },
+  aiMetadataValueDark: {
+    color: '#F9FAFB',
   },
   aiTagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: wp(6),
   },
   aiTag: {
-    backgroundColor: colors.dark.primary,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(74, 159, 255, 0.2)',
+    paddingVertical: hp(4),
+    paddingHorizontal: wp(10),
+    borderRadius: ms(6),
   },
   aiTagText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.dark.primary,
+    fontSize: fp(11),
+    fontWeight: '600',
+    color: '#4A9FFF',
   },
   actionsContainer: {
     flexDirection: 'row',
-    marginBottom: spacing.lg,
-    gap: spacing.md,
+    marginBottom: hp(12),
+    gap: wp(10),
   },
   actionButton: {
     flex: 1,
-    backgroundColor: colors.dark.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
+    backgroundColor: '#4A9FFF',
+    paddingVertical: hp(10),
+    paddingHorizontal: wp(12),
+    borderRadius: ms(10),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: hp(2) },
+    shadowOpacity: 0.1,
+    shadowRadius: ms(4),
+    elevation: 2,
   },
   actionButtonEmoji: {
-    fontSize: fontSize.base,
-    marginRight: spacing.sm,
+    fontSize: fp(14),
+    marginRight: wp(4),
   },
   actionButtonText: {
     color: '#FFFFFF',
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    marginLeft: spacing.sm,
+    fontSize: fp(12),
+    fontWeight: '600',
   },
-  urlContainer: {
-    backgroundColor: colors.dark.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.dark.primary,
-  },
-  urlLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.dark.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  urlText: {
-    fontSize: fontSize.xs,
-    color: colors.dark.primaryLight,
-    fontFamily: 'monospace',
-    lineHeight: 16,
-  },
-  deleteButton: {
-    backgroundColor: colors.dark.error,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
+  bookmarkButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    paddingVertical: hp(10),
+    paddingHorizontal: wp(16),
+    borderRadius: ms(10),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 1,
+    marginBottom: hp(12),
+    borderWidth: 2,
+    borderColor: '#4A9FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: hp(2) },
+    shadowOpacity: 0.08,
+    shadowRadius: ms(4),
+    elevation: 2,
+  },
+  bookmarkButtonActive: {
+    backgroundColor: '#FFB800',
+    borderColor: '#FFB800',
+  },
+  bookmarkEmoji: {
+    fontSize: fp(16),
+    marginRight: wp(6),
+  },
+  bookmarkText: {
+    color: '#4A9FFF',
+    fontSize: fp(13),
+    fontWeight: '600',
+  },
+  urlContainer: {
+    backgroundColor: 'rgba(74, 159, 255, 0.08)',
+    padding: wp(14),
+    borderRadius: ms(10),
+    marginBottom: hp(12),
+    borderLeftWidth: 3,
+    borderLeftColor: '#4A9FFF',
+  },
+  urlContainerDark: {
+    backgroundColor: 'rgba(74, 159, 255, 0.15)',
+  },
+  urlLabel: {
+    fontSize: fp(11),
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: hp(6),
+  },
+  urlLabelDark: {
+    color: '#9CA3AF',
+  },
+  urlText: {
+    fontSize: fp(11),
+    color: '#4A9FFF',
+    fontFamily: 'monospace',
+    lineHeight: fp(14),
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
+    paddingVertical: hp(12),
+    paddingHorizontal: wp(16),
+    borderRadius: ms(10),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: hp(2) },
+    shadowOpacity: 0.15,
+    shadowRadius: ms(4),
+    elevation: 2,
   },
   deleteButtonEmoji: {
-    fontSize: fontSize.base,
-    marginRight: spacing.md,
+    fontSize: fp(14),
+    marginRight: wp(6),
   },
   deleteButtonText: {
     color: '#FFFFFF',
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    marginLeft: spacing.md,
-  },
-  bookmarkButton: {
-    backgroundColor: colors.dark.surface,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-    borderWidth: 2,
-    borderColor: colors.dark.primary,
-    elevation: 1,
-  },
-  bookmarkEmoji: {
-    fontSize: fontSize.lg,
-    marginRight: spacing.md,
-  },
-  bookmarkText: {
-    color: colors.dark.primary,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    marginLeft: spacing.sm,
+    fontSize: fp(13),
+    fontWeight: '600',
   },
 });
