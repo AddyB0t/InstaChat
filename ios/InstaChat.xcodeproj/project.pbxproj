@@ -11,7 +11,34 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		SHARE001A6F3F58F76C31001 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARE001A6F3F58F76C31002 /* ShareViewController.swift */; };
+		SHARE001A6F3F58F76C31003 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = SHARE001A6F3F58F76C31004 /* MainInterface.storyboard */; };
+		SHARE001A6F3F58F76C31005 /* ShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = SHARE001A6F3F58F76C31006 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		SHARE001A6F3F58F76C31007 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = SHARE001A6F3F58F76C31008;
+			remoteInfo = ShareExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		SHARE001A6F3F58F76C31009 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				SHARE001A6F3F58F76C31005 /* ShareExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* InstaChat.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InstaChat.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -24,6 +51,12 @@
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = InstaChat/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = InstaChat/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		SHARE001A6F3F58F76C31002 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		SHARE001A6F3F58F76C31004 /* MainInterface.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = MainInterface.storyboard; sourceTree = "<group>"; };
+		SHARE001A6F3F58F76C31006 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		SHARE001A6F3F58F76C31010 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		SHARE001A6F3F58F76C31011 /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
+		MAIN0001A6F3F58F76C31012 /* InstaChat.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = InstaChat.entitlements; path = InstaChat/InstaChat.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -35,12 +68,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		SHARE001A6F3F58F76C31013 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		13B07FAE1A68108700A75B9A /* InstaChat */ = {
 			isa = PBXGroup;
 			children = (
+				MAIN0001A6F3F58F76C31012 /* InstaChat.entitlements */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -70,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07FAE1A68108700A75B9A /* InstaChat */,
+				SHARE001A6F3F58F76C31014 /* ShareExtension */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
@@ -84,6 +126,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* InstaChat.app */,
+				SHARE001A6F3F58F76C31006 /* ShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,6 +138,17 @@
 				5709B34CF0A7D63546082F79 /* Pods-InstaChat.release.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		SHARE001A6F3F58F76C31014 /* ShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				SHARE001A6F3F58F76C31002 /* ShareViewController.swift */,
+				SHARE001A6F3F58F76C31004 /* MainInterface.storyboard */,
+				SHARE001A6F3F58F76C31010 /* Info.plist */,
+				SHARE001A6F3F58F76C31011 /* ShareExtension.entitlements */,
+			);
+			path = ShareExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -111,15 +165,34 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */,
 				E235C05ADACE081382539298 /* [CP] Copy Pods Resources */,
+				SHARE001A6F3F58F76C31009 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				SHARE001A6F3F58F76C31015 /* PBXTargetDependency */,
 			);
 			name = InstaChat;
 			productName = InstaChat;
 			productReference = 13B07F961A680F5B00A75B9A /* InstaChat.app */;
 			productType = "com.apple.product-type.application";
+		};
+		SHARE001A6F3F58F76C31008 /* ShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = SHARE001A6F3F58F76C31016 /* Build configuration list for PBXNativeTarget "ShareExtension" */;
+			buildPhases = (
+				SHARE001A6F3F58F76C31017 /* Sources */,
+				SHARE001A6F3F58F76C31013 /* Frameworks */,
+				SHARE001A6F3F58F76C31018 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ShareExtension;
+			productName = ShareExtension;
+			productReference = SHARE001A6F3F58F76C31006 /* ShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -131,6 +204,9 @@
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1120;
+					};
+					SHARE001A6F3F58F76C31008 = {
+						CreatedOnToolsVersion = 14.0;
 					};
 				};
 			};
@@ -148,6 +224,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* InstaChat */,
+				SHARE001A6F3F58F76C31008 /* ShareExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -159,6 +236,14 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		SHARE001A6F3F58F76C31018 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				SHARE001A6F3F58F76C31003 /* MainInterface.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,7 +333,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		SHARE001A6F3F58F76C31017 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				SHARE001A6F3F58F76C31001 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		SHARE001A6F3F58F76C31015 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = SHARE001A6F3F58F76C31008 /* ShareExtension */;
+			targetProxy = SHARE001A6F3F58F76C31007 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
@@ -257,7 +358,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CODE_SIGN_ENTITLEMENTS = InstaChat/InstaChat.entitlements;
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = X2WL2QRKMR;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = InstaChat/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -271,8 +375,6 @@
 					"-ObjC",
 					"-lc++",
 				);
-				CODE_SIGN_STYLE = Manual;
-				DEVELOPMENT_TEAM = X2WL2QRKMR;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.notif.bookmark";
 				PRODUCT_NAME = InstaChat;
 				PROVISIONING_PROFILE_SPECIFIER = "NotiF App Store";
@@ -288,7 +390,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CODE_SIGN_ENTITLEMENTS = InstaChat/InstaChat.entitlements;
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = X2WL2QRKMR;
 				INFOPLIST_FILE = InstaChat/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -301,8 +406,6 @@
 					"-ObjC",
 					"-lc++",
 				);
-				CODE_SIGN_STYLE = Manual;
-				DEVELOPMENT_TEAM = X2WL2QRKMR;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.notif.bookmark";
 				PRODUCT_NAME = InstaChat;
 				PROVISIONING_PROFILE_SPECIFIER = "NotiF App Store";
@@ -450,6 +553,65 @@
 			};
 			name = Release;
 		};
+		SHARE001A6F3F58F76C31019 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = X2WL2QRKMR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "NotiF Share";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.notif.bookmark.ShareExtension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		SHARE001A6F3F58F76C31020 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = X2WL2QRKMR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "NotiF Share";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.notif.bookmark.ShareExtension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -467,6 +629,15 @@
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		SHARE001A6F3F58F76C31016 /* Build configuration list for PBXNativeTarget "ShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				SHARE001A6F3F58F76C31019 /* Debug */,
+				SHARE001A6F3F58F76C31020 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
