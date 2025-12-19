@@ -1,6 +1,6 @@
 workflows:
   ios-release:
-    name: iOS Release Build
+    name: NotiF iOS Release
     max_build_duration: 60
     instance_type: mac_mini_m2
     integrations:
@@ -8,7 +8,7 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.instachat.app
+        bundle_identifier: com.notif.bookmark
       vars:
         XCODE_SCHEME: "InstaChat"
       node: 20
