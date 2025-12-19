@@ -21,6 +21,9 @@ workflows:
       - name: Install npm dependencies
         script: npm install --legacy-peer-deps
 
+      - name: Link fonts and assets
+        script: npx react-native-asset
+
       - name: Install CocoaPods
         script: cd ios && pod install
 
