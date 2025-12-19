@@ -271,8 +271,11 @@
 					"-ObjC",
 					"-lc++",
 				);
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = X2WL2QRKMR;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.notif.bookmark";
 				PRODUCT_NAME = InstaChat;
+				PROVISIONING_PROFILE_SPECIFIER = "NotiF App Store";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -298,8 +301,11 @@
 					"-ObjC",
 					"-lc++",
 				);
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = X2WL2QRKMR;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.notif.bookmark";
 				PRODUCT_NAME = InstaChat;
+				PROVISIONING_PROFILE_SPECIFIER = "NotiF App Store";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
