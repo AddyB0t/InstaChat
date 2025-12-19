@@ -30,6 +30,15 @@ workflows:
       - name: Build IPA
         script: |
           cd ios
+          xcodebuild -workspace "InstaChat.xcworkspace" \
+            -scheme "InstaChat" \
+            -configuration Release \
+            -archivePath build/ios/xcarchive/InstaChat.xcarchive \
+            archive \
+            DEVELOPMENT_TEAM=X2WL2QRKMR \
+            CODE_SIGN_STYLE=Manual \
+            "CODE_SIGN_IDENTITY=Apple Distribution" || echo "Archive failed, showing last 200 lines:"
+
           xcode-project build-ipa \
             --workspace "InstaChat.xcworkspace" \
             --scheme "$XCODE_SCHEME"
