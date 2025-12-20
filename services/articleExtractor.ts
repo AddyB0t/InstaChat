@@ -21,6 +21,50 @@ const generateId = (): string => {
   return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
 
+/**
+ * Clean URL by removing tracking parameters
+ * Removes utm_*, share parameters, and other tracking junk
+ * Uses regex approach since URL API may not work properly in React Native
+ */
+const cleanUrl = (url: string): string => {
+  try {
+    // Split URL into base and query string
+    const questionMarkIndex = url.indexOf('?');
+    if (questionMarkIndex === -1) {
+      return url; // No query string, nothing to clean
+    }
+
+    const baseUrl = url.substring(0, questionMarkIndex);
+    const queryString = url.substring(questionMarkIndex + 1);
+
+    // Parse query params
+    const params = queryString.split('&').filter(param => {
+      const [key] = param.split('=');
+      const keyLower = key.toLowerCase();
+
+      // Remove utm_* params
+      if (keyLower.startsWith('utm_')) return false;
+
+      // Remove other tracking params
+      const trackingParams = [
+        'share', 'ref', 'fbclid', 'gclid', 'ref_src', 'ref_url',
+        'context', 'web3x', 'web3xcss', 'source', 'si', 'igsh'
+      ];
+      if (trackingParams.includes(keyLower)) return false;
+
+      return true;
+    });
+
+    // Rebuild URL
+    if (params.length === 0) {
+      return baseUrl;
+    }
+    return `${baseUrl}?${params.join('&')}`;
+  } catch {
+    return url;
+  }
+};
+
 export interface ExtractedArticleData {
   title: string;
   content: string;
@@ -32,6 +76,47 @@ export interface ExtractedArticleData {
   tweetText?: string;
   tags?: string[];
 }
+
+/**
+ * Fetch Reddit metadata using oEmbed API
+ * Reddit blocks normal scraping, so we use their official oEmbed endpoint
+ */
+const fetchRedditMetadata = async (url: string): Promise<{
+  title?: string;
+  description?: string;
+  author?: string;
+}> => {
+  try {
+    console.log('[ArticleExtractor] Fetching Reddit metadata via oEmbed...');
+    const oembedUrl = `https://www.reddit.com/oembed?url=${encodeURIComponent(url)}`;
+
+    const response = await fetch(oembedUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'NotiF/1.0',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('[ArticleExtractor] Reddit oEmbed success:', JSON.stringify({
+        title: data.title,
+        author: data.author_name,
+      }, null, 2));
+
+      return {
+        title: data.title || undefined,
+        description: undefined,
+        author: data.author_name || undefined,
+      };
+    } else {
+      console.log('[ArticleExtractor] Reddit oEmbed failed with status:', response.status);
+    }
+  } catch (error) {
+    console.log('[ArticleExtractor] Reddit oEmbed failed:', error);
+  }
+  return {};
+};
 
 /**
  * Fetch YouTube metadata using oEmbed API
@@ -229,7 +314,11 @@ const fetchSocialMetadata = async (url: string): Promise<{
 export const extractArticleFromUrl = async (url: string): Promise<ExtractedArticleData> => {
   try {
     console.log('[ArticleExtractor] Starting extraction process');
-    console.log('[ArticleExtractor] URL:', url);
+    console.log('[ArticleExtractor] Original URL:', url);
+
+    // Clean URL - remove tracking parameters (utm_*, share params, etc.)
+    url = cleanUrl(url);
+    console.log('[ArticleExtractor] Cleaned URL:', url);
 
     // Validate URL
     if (!isValidUrl(url)) {
@@ -294,6 +383,28 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
               author: youtubeMetadata.author || metadata.author,
             };
             console.log('[ArticleExtractor] Using YouTube oEmbed metadata:', metadata.title);
+          }
+        }
+      }
+
+      // For Reddit: Check if microlink returned a generic/bad title, use oEmbed as fallback
+      if (platform === 'reddit') {
+        const isGenericTitle = !metadata.title ||
+          metadata.title.trim() === '' ||
+          metadata.title.toLowerCase().includes('reddit') && metadata.title.length < 20 ||
+          metadata.title.toLowerCase().includes('login') ||
+          metadata.title.toLowerCase().includes('sign in');
+
+        if (isGenericTitle) {
+          console.log('[ArticleExtractor] microlink returned generic Reddit title, trying oEmbed...');
+          const redditMetadata = await fetchRedditMetadata(url);
+          if (redditMetadata.title) {
+            metadata = {
+              ...metadata,
+              title: redditMetadata.title,
+              author: redditMetadata.author || metadata.author,
+            };
+            console.log('[ArticleExtractor] Using Reddit oEmbed metadata:', metadata.title);
           }
         }
       }
