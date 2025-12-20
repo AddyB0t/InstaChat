@@ -512,25 +512,33 @@ export default function PriorityReviewScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* Empty state content */}
-        <View style={styles.emptyContainer}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#DCFCE7' }]}>
-            <Icon name="checkmark-circle" size={48} color="#22C55E" />
+        {/* App title - NotiF style - always visible */}
+        <View style={styles.stacksContainer}>
+          <View style={styles.titleContainer}>
+            <Text style={[styles.appTitle, { color: colors.accent.primary }]}>NotiF</Text>
+            <Text style={[styles.appSubtitle, { color: colors.text.primary }]}>PRIORITY</Text>
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
-            All Done!
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.text.secondary }]}>
-            You've reviewed all your priority articles.{'\n'}Head back to find more content!
-          </Text>
 
-          <TouchableOpacity
-            style={[styles.backToMainButton, { backgroundColor: colors.accent.primary }]}
-            onPress={() => navigation.goBack()}
-          >
-            <Icon name="arrow-back" size={20} color="#FFFFFF" />
-            <Text style={styles.backToMainText}>Back to Main Feed</Text>
-          </TouchableOpacity>
+          {/* Empty state content */}
+          <View style={styles.emptyContentContainer}>
+            <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#DCFCE7' }]}>
+              <Icon name="checkmark-circle" size={48} color="#22C55E" />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
+              All Done!
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.text.secondary }]}>
+              You've reviewed all your priority articles.{'\n'}Head back to find more content!
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.backToMainButton, { backgroundColor: colors.accent.primary }]}
+              onPress={() => navigation.goBack()}
+            >
+              <Icon name="arrow-back" size={20} color="#FFFFFF" />
+              <Text style={styles.backToMainText}>Back to Main Feed</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* View mode selector */}
@@ -874,6 +882,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: wp(24),
+  },
+  emptyContentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: wp(24),
+    marginTop: hp(-60),
   },
   emptyIconContainer: {
     width: ms(80),

@@ -17,13 +17,17 @@ import {
   NativeSyntheticEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/Ionicons';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Orange accent color matching NotiF
 const ACCENT_COLOR = '#F97316';
 const ACCENT_LIGHT = '#FDBA74';
+const ACCENT_DARK = '#EA580C';
 const BG_COLOR = '#000000';
+const BG_SECONDARY = '#0A0A0A';
 const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_SECONDARY = '#9CA3AF';
 
@@ -90,8 +94,8 @@ export default function OnboardingScreen({ onComplete }: Props) {
             style={[
               styles.dot,
               {
-                backgroundColor: index === currentIndex ? ACCENT_COLOR : TEXT_SECONDARY,
-                width: index === currentIndex ? 24 : 8,
+                backgroundColor: index === currentIndex ? ACCENT_COLOR : 'rgba(255,255,255,0.3)',
+                width: index === currentIndex ? 28 : 8,
               },
             ]}
           />
@@ -101,19 +105,73 @@ export default function OnboardingScreen({ onComplete }: Props) {
   );
 }
 
+// App Icon Logo Component - matches the actual app icon
+function AppIconLogo({ size = 120 }: { size?: number }) {
+  const iconSize = size;
+  const bookmarkWidth = size * 0.45;
+  const bookmarkHeight = size * 0.55;
+  const notchSize = size * 0.12;
+  const borderRadius = size * 0.22;
+  const innerRadius = size * 0.08;
+
+  return (
+    <View style={[styles.appIconContainer, {
+      width: iconSize,
+      height: iconSize,
+      borderRadius: borderRadius,
+    }]}>
+      {/* Dark background */}
+      <View style={[styles.appIconBg, {
+        width: iconSize,
+        height: iconSize,
+        borderRadius: borderRadius,
+      }]}>
+        {/* Orange bookmark shape */}
+        <View style={[styles.bookmarkShape, {
+          width: bookmarkWidth,
+          height: bookmarkHeight,
+          borderTopLeftRadius: innerRadius,
+          borderTopRightRadius: innerRadius,
+        }]}>
+          {/* Notch cutout at bottom */}
+          <View style={[styles.bookmarkNotch, {
+            borderLeftWidth: bookmarkWidth / 2,
+            borderRightWidth: bookmarkWidth / 2,
+            borderBottomWidth: notchSize,
+          }]} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // Slide 1: Logo
 function LogoSlide() {
   return (
     <View style={styles.slide}>
+      {/* Background glow effect */}
+      <View style={styles.glowContainer}>
+        <LinearGradient
+          colors={['rgba(249, 115, 22, 0.15)', 'rgba(249, 115, 22, 0.05)', 'transparent']}
+          style={styles.glowGradient}
+        />
+      </View>
+
       <View style={styles.logoContainer}>
-        {/* Logo Icon - Bookmark shape with rounded corners */}
-        <View style={styles.logoIcon}>
-          <View style={styles.logoInner}>
-            <View style={styles.logoNotch} />
-          </View>
+        {/* App Icon Logo with shadow */}
+        <View style={styles.logoShadow}>
+          <AppIconLogo size={130} />
         </View>
+
         <Text style={styles.logoText}>NotiF</Text>
         <Text style={styles.logoSubtitle}>BOOKMARK</Text>
+      </View>
+
+      {/* Swipe hint */}
+      <View style={styles.swipeHint}>
+        <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" />
+        <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" style={{ marginLeft: -8 }} />
+        <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" style={{ marginLeft: -8 }} />
       </View>
     </View>
   );
@@ -123,33 +181,45 @@ function LogoSlide() {
 function FeaturesSlide() {
   const features = [
     {
-      icon: '⇄',
+      icon: 'swap-horizontal',
       title: 'Simple Swipes',
       description: 'Effortlessly sort with intuitive gestures',
     },
     {
-      icon: '▣',
+      icon: 'grid',
       title: 'Smart Organization',
       description: 'Your content, intelligently categorized',
     },
     {
-      icon: '⚡',
+      icon: 'flash',
       title: 'Quick Access',
-      description: 'Open bookmarks instantly, right from the app',
+      description: 'Open bookmarks instantly from the app',
     },
   ];
 
   return (
     <View style={styles.slide}>
+      {/* Background glow */}
+      <View style={styles.glowContainer}>
+        <LinearGradient
+          colors={['rgba(249, 115, 22, 0.1)', 'transparent']}
+          style={styles.glowGradientSmall}
+        />
+      </View>
+
       <View style={styles.featuresContainer}>
-        <Text style={styles.featuresTitle}>Organize Your Digital{'\n'}Life</Text>
+        <Text style={styles.featuresTitle}>Organize Your</Text>
+        <Text style={styles.featuresTitleAccent}>Digital Life</Text>
 
         <View style={styles.featuresList}>
           {features.map((feature, index) => (
             <View key={index} style={styles.featureItem}>
-              <View style={styles.featureIconContainer}>
-                <Text style={styles.featureIcon}>{feature.icon}</Text>
-              </View>
+              <LinearGradient
+                colors={[ACCENT_COLOR, ACCENT_DARK]}
+                style={styles.featureIconContainer}
+              >
+                <Icon name={feature.icon} size={22} color="#FFFFFF" />
+              </LinearGradient>
               <View style={styles.featureContent}>
                 <Text style={styles.featureTitle}>{feature.title}</Text>
                 <Text style={styles.featureDescription}>{feature.description}</Text>
@@ -166,17 +236,23 @@ function FeaturesSlide() {
 function WelcomeSlide({ onGetStarted }: { onGetStarted: () => void }) {
   return (
     <View style={styles.slide}>
+      {/* Background glow */}
+      <View style={styles.glowContainer}>
+        <LinearGradient
+          colors={['rgba(249, 115, 22, 0.12)', 'transparent']}
+          style={styles.glowGradientSmall}
+        />
+      </View>
+
       <View style={styles.welcomeContainer}>
-        {/* Small Logo */}
-        <View style={styles.smallLogoIcon}>
-          <View style={styles.smallLogoInner}>
-            <View style={styles.smallLogoNotch} />
-          </View>
+        {/* App Icon Logo with shadow */}
+        <View style={styles.smallLogoShadow}>
+          <AppIconLogo size={100} />
         </View>
 
         <Text style={styles.welcomeTitle}>Welcome to NotiF</Text>
         <Text style={styles.welcomeDescription}>
-          Your bookmarks from almost every social{'\n'}media and any website—beautifully{'\n'}organized in one place
+          Your bookmarks from almost every social{'\n'}media and any website—beautifully{'\n'}organized in one place.
         </Text>
       </View>
 
@@ -184,12 +260,20 @@ function WelcomeSlide({ onGetStarted }: { onGetStarted: () => void }) {
       <View style={styles.buttonContainer}>
         <Pressable
           style={({ pressed }) => [
-            styles.getStartedButton,
-            { opacity: pressed ? 0.8 : 1 },
+            styles.getStartedButtonWrapper,
+            { transform: [{ scale: pressed ? 0.98 : 1 }] },
           ]}
           onPress={onGetStarted}
         >
-          <Text style={styles.getStartedText}>Get Started</Text>
+          <LinearGradient
+            colors={[ACCENT_COLOR, ACCENT_DARK]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.getStartedButton}
+          >
+            <Text style={styles.getStartedText}>Get Started</Text>
+            <Icon name="arrow-forward" size={20} color="#FFFFFF" />
+          </LinearGradient>
         </Pressable>
       </View>
     </View>
@@ -223,55 +307,88 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 
+  // Background glow
+  glowContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  glowGradient: {
+    width: SCREEN_WIDTH * 1.2,
+    height: SCREEN_WIDTH * 1.2,
+    borderRadius: SCREEN_WIDTH * 0.6,
+    opacity: 0.8,
+  },
+  glowGradientSmall: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH,
+    borderRadius: SCREEN_WIDTH * 0.5,
+    opacity: 0.6,
+  },
+
+  // App Icon Logo styles
+  appIconContainer: {
+    overflow: 'hidden',
+  },
+  appIconBg: {
+    backgroundColor: '#1A1A1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  bookmarkShape: {
+    backgroundColor: ACCENT_COLOR,
+    position: 'relative',
+  },
+  bookmarkNotch: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#1A1A1A',
+  },
+
   // Logo Slide
   logoContainer: {
     alignItems: 'center',
   },
-  logoIcon: {
-    width: 100,
-    height: 100,
-    backgroundColor: ACCENT_COLOR,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  logoInner: {
-    width: 50,
-    height: 60,
-    backgroundColor: BG_COLOR,
-    borderRadius: 8,
-    position: 'relative',
-  },
-  logoNotch: {
-    position: 'absolute',
-    bottom: 0,
-    left: '50%',
-    marginLeft: -12,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 12,
-    borderRightWidth: 12,
-    borderBottomWidth: 16,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: ACCENT_COLOR,
+  logoShadow: {
+    shadowColor: ACCENT_COLOR,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 20,
+    marginBottom: 28,
   },
   logoText: {
     fontFamily: 'Courier',
-    fontSize: 32,
+    fontSize: 42,
     fontWeight: '900',
     color: ACCENT_COLOR,
-    letterSpacing: 3,
+    letterSpacing: 4,
   },
   logoSubtitle: {
     fontFamily: 'Courier',
-    fontSize: 10,
-    fontWeight: '600',
-    color: TEXT_PRIMARY,
-    letterSpacing: 8,
-    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 10,
+    marginTop: 8,
     textAlign: 'center',
+  },
+  swipeHint: {
+    position: 'absolute',
+    bottom: 120,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   // Features Slide
@@ -280,47 +397,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   featuresTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: ACCENT_LIGHT,
+    fontSize: 32,
+    fontWeight: '300',
+    color: TEXT_PRIMARY,
     textAlign: 'center',
-    marginBottom: 40,
-    lineHeight: 36,
-    fontStyle: 'italic',
+    letterSpacing: 1,
+  },
+  featuresTitleAccent: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: ACCENT_COLOR,
+    textAlign: 'center',
+    marginBottom: 48,
+    letterSpacing: 1,
   },
   featuresList: {
     width: '100%',
-    gap: 24,
+    gap: 28,
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 18,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   featureIconContainer: {
-    width: 48,
-    height: 48,
-    backgroundColor: ACCENT_COLOR,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  featureIcon: {
-    fontSize: 20,
-    color: '#FFFFFF',
   },
   featureContent: {
     flex: 1,
   },
   featureTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: TEXT_PRIMARY,
     marginBottom: 4,
   },
   featureDescription: {
-    fontSize: 13,
+    fontSize: 14,
     color: TEXT_SECONDARY,
+    lineHeight: 20,
   },
 
   // Welcome Slide
@@ -329,64 +453,57 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  smallLogoIcon: {
-    width: 80,
-    height: 80,
-    backgroundColor: ACCENT_COLOR,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  smallLogoInner: {
-    width: 40,
-    height: 48,
-    backgroundColor: BG_COLOR,
-    borderRadius: 6,
-    position: 'relative',
-  },
-  smallLogoNotch: {
-    position: 'absolute',
-    bottom: 0,
-    left: '50%',
-    marginLeft: -10,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 10,
-    borderRightWidth: 10,
-    borderBottomWidth: 14,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: ACCENT_COLOR,
+  smallLogoShadow: {
+    shadowColor: ACCENT_COLOR,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 15,
+    marginBottom: 36,
   },
   welcomeTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: ACCENT_LIGHT,
+    fontSize: 30,
+    fontWeight: '300',
+    color: TEXT_PRIMARY,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
     fontStyle: 'italic',
+    letterSpacing: 1,
   },
   welcomeDescription: {
-    fontSize: 14,
+    fontSize: 15,
     color: TEXT_SECONDARY,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24,
+    paddingHorizontal: 10,
   },
   buttonContainer: {
     width: '100%',
-    paddingHorizontal: 20,
-    paddingBottom: 100,
+    paddingHorizontal: 10,
+    paddingBottom: 110,
+  },
+  getStartedButtonWrapper: {
+    borderRadius: 30,
+    overflow: 'hidden',
+    shadowColor: ACCENT_COLOR,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   getStartedButton: {
-    backgroundColor: ACCENT_COLOR,
-    paddingVertical: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
     borderRadius: 30,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
   },
   getStartedText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: BG_COLOR,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
 });

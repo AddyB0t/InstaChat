@@ -644,28 +644,38 @@ export default function NotifHomeScreen({ navigation }: any) {
       {selectedView === 'stacks' ? (
         isStackEmpty ? (
           // Empty state for stacks view - no unread articles
-          <View style={styles.emptyContainer}>
-            <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#DCFCE7' }]}>
-              <Icon name="checkmark-circle" size={48} color="#22C55E" />
+          <View style={styles.stacksContainer}>
+            {/* App title - NotiF style - always visible */}
+            <View style={styles.titleContainer}>
+              <Text style={[styles.appTitle, { color: colors.accent.primary }]}>NotiF</Text>
+              <Text style={[styles.appSubtitle, { color: colors.text.primary }]}>
+                BOOKMARK
+              </Text>
             </View>
-            <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
-              All Caught Up!
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.text.secondary }]}>
-              No unread articles in your stack.{'\n'}Switch to Grid view to see read articles.
-            </Text>
 
-            <View style={styles.emptyButtons}>
-              <TouchableOpacity
-                style={[styles.folderButton, { backgroundColor: '#22C55E' }]}
-                onPress={() => navigation.navigate('PriorityReview')}
-              >
-                <Icon name="heart" size={28} color="#FFFFFF" />
-                <View style={styles.folderInfo}>
-                  <Text style={styles.folderLabel}>Priority</Text>
-                  <Text style={styles.folderCount}>{priorityArticles.length}</Text>
-                </View>
-              </TouchableOpacity>
+            <View style={styles.emptyContentContainer}>
+              <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : '#DCFCE7' }]}>
+                <Icon name="checkmark-circle" size={48} color="#22C55E" />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
+                All Caught Up!
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.text.secondary }]}>
+                No unread articles in your stack.{'\n'}Switch to Grid view to see read articles.
+              </Text>
+
+              <View style={styles.emptyButtons}>
+                <TouchableOpacity
+                  style={[styles.folderButton, { backgroundColor: '#22C55E' }]}
+                  onPress={() => navigation.navigate('PriorityReview')}
+                >
+                  <Icon name="heart" size={28} color="#FFFFFF" />
+                  <View style={styles.folderInfo}>
+                    <Text style={styles.folderLabel}>Priority</Text>
+                    <Text style={styles.folderCount}>{priorityArticles.length}</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         ) : (
@@ -1468,6 +1478,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: wp(24),
+  },
+  emptyContentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: wp(24),
+    marginTop: hp(-60),
   },
   emptyIconContainer: {
     width: ms(80),

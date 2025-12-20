@@ -35,7 +35,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // Check for shared URL from app group (cold start)
     checkForSharedUrl()
 
+    // Listen for app becoming active
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(applicationDidBecomeActive),
+      name: UIApplication.didBecomeActiveNotification,
+      object: nil
+    )
+
     return true
+  }
+
+  @objc func applicationDidBecomeActive() {
+    // Check for shared URL when app comes to foreground
+    checkForSharedUrl()
   }
 
   // Handle URL scheme (notif://share?url=...)
