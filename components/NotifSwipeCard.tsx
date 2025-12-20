@@ -15,6 +15,8 @@ import {
   TouchableWithoutFeedback,
   TextInput,
   PanResponder,
+  Alert,
+  Share,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, {
@@ -228,6 +230,20 @@ export default function NotifSwipeCard({
     console.log('[NotifSwipeCard] Opening link directly:', article.url);
     // Always open the link directly in browser/app
     handleOpenLink();
+  };
+
+  const handleShare = async () => {
+    console.log('[NotifSwipeCard] Sharing article:', article.url);
+    if (article.url) {
+      try {
+        await Share.share({
+          message: article.url,
+          title: article.title,
+        });
+      } catch (error) {
+        console.error('[NotifSwipeCard] Error sharing:', error);
+      }
+    }
   };
 
   const handleSwipeComplete = (direction: 'left' | 'right') => {
@@ -495,10 +511,10 @@ export default function NotifSwipeCard({
                     </Pressable>
                     <Pressable
                       style={[styles.iconButton, { backgroundColor: platformConfig.color }]}
-                      onPress={handleOpenLink}
+                      onPress={handleShare}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Icon name="open-outline" size={fp(14)} color="#FFFFFF" />
+                      <Icon name="share-outline" size={fp(14)} color="#FFFFFF" />
                     </Pressable>
                   </View>
                 </View>
@@ -593,10 +609,10 @@ export default function NotifSwipeCard({
                     </Pressable>
                     <Pressable
                       style={[styles.iconButton, { backgroundColor: colors.accent.primary }]}
-                      onPress={handleOpenLink}
+                      onPress={handleShare}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Icon name="open-outline" size={fp(14)} color="#FFFFFF" />
+                      <Icon name="share-outline" size={fp(14)} color="#FFFFFF" />
                     </Pressable>
                   </View>
                 </View>
@@ -747,36 +763,33 @@ export default function NotifSwipeCard({
               </TouchableOpacity>
             )}
 
-            {/* Skip and Priority Buttons */}
+            {/* Skip and Priority/Return Buttons - 50/50 layout */}
             <View style={styles.modalBottomButtons}>
               {/* Skip Button */}
               <TouchableOpacity
-                style={[styles.skipButton, { backgroundColor: colors.background.tertiary }]}
+                style={[styles.actionButton, { backgroundColor: colors.background.tertiary }]}
                 onPress={handleSkip}
               >
                 <Icon name="play-skip-forward" size={fp(18)} color={colors.text.secondary} />
-                <Text style={[styles.skipButtonText, { color: colors.text.secondary }]}>Skip</Text>
+                <Text style={[styles.actionButtonText, { color: colors.text.secondary }]}>Skip</Text>
               </TouchableOpacity>
 
               {/* Priority/Return Button */}
               <TouchableOpacity
                 style={[
-                  styles.priorityButton,
-                  { backgroundColor: article.isBookmarked ? colors.background.tertiary : colors.accent.primary }
+                  styles.actionButton,
+                  { backgroundColor: article.isBookmarked ? colors.accent.primary : colors.accent.primary }
                 ]}
                 onPress={handlePriorityToggle}
               >
-                <Text style={[
-                  styles.priorityButtonText,
-                  { color: article.isBookmarked ? colors.text.secondary : '#FFFFFF' }
-                ]}>
+                <Icon
+                  name={article.isBookmarked ? 'arrow-undo' : 'heart'}
+                  size={fp(18)}
+                  color="#FFFFFF"
+                />
+                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
                   {article.isBookmarked ? 'Return to Stack' : 'Save to Priority'}
                 </Text>
-                <Icon
-                  name={article.isBookmarked ? 'arrow-undo' : 'chevron-forward'}
-                  size={fp(18)}
-                  color={article.isBookmarked ? colors.text.secondary : '#FFFFFF'}
-                />
               </TouchableOpacity>
             </View>
 
@@ -785,8 +798,21 @@ export default function NotifSwipeCard({
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={() => {
-                  setShowOptionsModal(false);
-                  onDelete(article.id);
+                  Alert.alert(
+                    'Delete Article',
+                    'Are you sure you want to delete this article? This action cannot be undone.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: () => {
+                          setShowOptionsModal(false);
+                          onDelete(article.id);
+                        },
+                      },
+                    ]
+                  );
                 }}
               >
                 <Icon name="trash-outline" size={fp(18)} color="#EF4444" />
@@ -1310,6 +1336,19 @@ const styles = StyleSheet.create({
     fontSize: fp(14),
     fontWeight: '500',
     color: '#EF4444',
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: hp(14),
+    borderRadius: ms(12),
+    gap: wp(6),
+  },
+  actionButtonText: {
+    fontSize: fp(15),
+    fontWeight: '600',
   },
   // Existing Tags Styles
   existingTagsSection: {

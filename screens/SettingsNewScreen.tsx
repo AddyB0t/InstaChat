@@ -198,10 +198,10 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
         <SectionHeader title="Collections" colors={colors} />
         <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
           <SettingRow
-            iconName="bookmark"
+            iconName="star"
             iconBgColor="#F59E0B"
-            title="Bookmarked"
-            subtitle="View your saved bookmarks"
+            title="Favorites"
+            subtitle="View your saved favorites"
             onPress={handleBookmarkedPress}
             showChevron={bookmarkedCount === 0}
             colors={colors}
@@ -223,7 +223,7 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
             iconName="funnel"
             iconBgColor={colors.accent.primary}
             title="Sort & Filter"
-            subtitle="Organize your bookmarks"
+            subtitle="Organize your articles"
             onPress={handleSortFilterPress}
             colors={colors}
           />

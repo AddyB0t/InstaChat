@@ -592,28 +592,32 @@ export default function NotifHomeScreen({ navigation }: any) {
             <Icon name="add-circle" size={20} color="#FFFFFF" />
           </TouchableOpacity>
 
-          {/* Shuffle Button */}
-          <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: colors.accent.primary }]}
-            onPress={handleShuffle}
-          >
-            <Icon name="shuffle" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          {/* Shuffle Button - Only show in stacks view */}
+          {selectedView === 'stacks' && (
+            <TouchableOpacity
+              style={[styles.headerButton, { backgroundColor: colors.accent.primary }]}
+              onPress={handleShuffle}
+            >
+              <Icon name="shuffle" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
 
-          {/* Undo Button */}
-          <TouchableOpacity
-            style={[
-              styles.headerButton,
-              {
-                backgroundColor: swipeHistory.length > 0 ? colors.accent.primary : colors.accent.light,
-                opacity: swipeHistory.length > 0 ? 1 : 0.5,
-              },
-            ]}
-            onPress={handleUndo}
-            disabled={swipeHistory.length === 0}
-          >
-            <Icon name="arrow-undo" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          {/* Undo Button - Only show in stacks view */}
+          {selectedView === 'stacks' && (
+            <TouchableOpacity
+              style={[
+                styles.headerButton,
+                {
+                  backgroundColor: swipeHistory.length > 0 ? colors.accent.primary : colors.accent.light,
+                  opacity: swipeHistory.length > 0 ? 1 : 0.5,
+                },
+              ]}
+              onPress={handleUndo}
+              disabled={swipeHistory.length === 0}
+            >
+              <Icon name="arrow-undo" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.headerRight}>
@@ -700,10 +704,10 @@ export default function NotifHomeScreen({ navigation }: any) {
             >
               <View style={styles.instructionRow}>
                 <View style={[styles.instructionIconBox, { backgroundColor: colors.background.border }]}>
-                  <Icon name="arrow-back" size={16} color={isDark ? '#FFFFFF' : colors.text.primary} />
+                  <Icon name="arrow-back" size={14} color={isDark ? '#FFFFFF' : colors.text.primary} />
                 </View>
                 <View style={[styles.instructionEmojiBox, { backgroundColor: colors.accent.bg }]}>
-                  <Icon name="hand-left-outline" size={16} color={colors.accent.primary} />
+                  <Icon name="hand-left-outline" size={14} color={colors.accent.primary} />
                 </View>
                 <Text style={[styles.instructionText, { color: colors.text.secondary }]}>
                   Swipe left to <Text style={[styles.instructionBold, { color: colors.text.primary }]}>Skip</Text>
@@ -711,10 +715,10 @@ export default function NotifHomeScreen({ navigation }: any) {
               </View>
               <View style={styles.instructionRow}>
                 <View style={[styles.instructionIconBox, { backgroundColor: colors.accent.primary }]}>
-                  <Icon name="arrow-forward" size={16} color="#FFFFFF" />
+                  <Icon name="arrow-forward" size={14} color="#FFFFFF" />
                 </View>
                 <View style={[styles.instructionEmojiBox, { backgroundColor: colors.accent.bg }]}>
-                  <Icon name="heart" size={16} color={colors.accent.primary} />
+                  <Icon name="heart" size={14} color={colors.accent.primary} />
                 </View>
                 <Text style={[styles.instructionText, { color: colors.text.secondary }]}>
                   Swipe right for <Text style={[styles.instructionBold, { color: colors.accent.primary }]}>Priority</Text>
@@ -865,7 +869,7 @@ export default function NotifHomeScreen({ navigation }: any) {
                     onPress={() => handleToggleBookmark(item)}
                   >
                     <Icon
-                      name={item.isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                      name={item.isBookmarked ? 'star' : 'star-outline'}
                       size={18}
                       color={item.isBookmarked ? '#F59E0B' : colors.text.tertiary}
                     />
@@ -1023,7 +1027,7 @@ export default function NotifHomeScreen({ navigation }: any) {
           ) : showBookmarksFolder ? (
             // Show bookmarked articles
             <View style={styles.tagFolderContent}>
-              {/* Bookmarks folder header */}
+              {/* Favorites folder header */}
               <View style={styles.tagFolderHeader}>
                 <TouchableOpacity
                   style={[styles.backButton, { backgroundColor: colors.background.secondary }]}
@@ -1032,7 +1036,7 @@ export default function NotifHomeScreen({ navigation }: any) {
                   <Icon name="arrow-back" size={20} color={colors.text.primary} />
                 </TouchableOpacity>
                 <Text style={[styles.tagFolderTitle, { color: colors.text.primary }]}>
-                  Bookmarks
+                  Favorites
                 </Text>
                 <Text style={[styles.tagFolderCount, { color: colors.text.secondary }]}>
                   {bookmarkedArticles.length} articles
@@ -1070,9 +1074,9 @@ export default function NotifHomeScreen({ navigation }: any) {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                   <View style={styles.emptyTagFolder}>
-                    <Icon name="bookmark-outline" size={48} color={colors.text.tertiary} />
+                    <Icon name="star-outline" size={48} color={colors.text.tertiary} />
                     <Text style={[styles.emptyTagText, { color: colors.text.secondary }]}>
-                      No bookmarked articles yet
+                      No favorite articles yet
                     </Text>
                   </View>
                 }
@@ -1081,15 +1085,13 @@ export default function NotifHomeScreen({ navigation }: any) {
           ) : (folders.length > 0 || bookmarkedArticles.length > 0) ? (
             // Show folders list with search
             <View style={styles.tagFoldersContainer}>
-              <View style={styles.tagFoldersHeader}>
-                <Icon name="folder" size={24} color={colors.accent.primary} />
-                <Text style={[styles.tagFoldersTitle, { color: colors.text.primary }]}>
-                  Custom Stacks
+              {/* NotiF style header */}
+              <View style={styles.titleContainer}>
+                <Text style={[styles.appTitle, { color: colors.accent.primary }]}>NotiF</Text>
+                <Text style={[styles.appSubtitle, { color: colors.text.primary }]}>
+                  FOLDERS
                 </Text>
               </View>
-              <Text style={[styles.tagFoldersSubtitle, { color: colors.text.secondary }]}>
-                Your saved folders and bookmarks
-              </Text>
 
               {/* Folder search */}
               {folders.length > 0 && (
@@ -1126,11 +1128,11 @@ export default function NotifHomeScreen({ navigation }: any) {
                         onPress={handleOpenBookmarksFolder}
                       >
                         <View style={[styles.tagFolderIcon, { backgroundColor: '#F59E0B' }]}>
-                          <Icon name="bookmark" size={24} color="#FFFFFF" />
+                          <Icon name="star" size={24} color="#FFFFFF" />
                         </View>
                         <View style={styles.tagFolderInfo}>
                           <Text style={[styles.tagFolderName, { color: colors.text.primary }]}>
-                            Bookmarks
+                            Favorites
                           </Text>
                           <Text style={[styles.tagFolderArticleCount, { color: colors.text.secondary }]}>
                             {bookmarkedArticles.length} {bookmarkedArticles.length === 1 ? 'article' : 'articles'}
@@ -1182,14 +1184,21 @@ export default function NotifHomeScreen({ navigation }: any) {
           ) : (
             // Empty state - no folders or bookmarks yet
             <View style={styles.emptyCustomContainer}>
-              <View style={[styles.emptyTagIconContainer, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7' }]}>
+              {/* NotiF style header */}
+              <View style={styles.titleContainer}>
+                <Text style={[styles.appTitle, { color: colors.accent.primary }]}>NotiF</Text>
+                <Text style={[styles.appSubtitle, { color: colors.text.primary }]}>
+                  FOLDERS
+                </Text>
+              </View>
+              <View style={[styles.emptyTagIconContainer, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7', marginTop: hp(40) }]}>
                 <Icon name="folder-outline" size={48} color="#F59E0B" />
               </View>
               <Text style={[styles.customTitle, { color: colors.text.primary }]}>
-                No Stacks Yet
+                No Folders Yet
               </Text>
               <Text style={[styles.customSubtitle, { color: colors.text.secondary }]}>
-                Save priority articles as folders to organize your reading.
+                Favorite articles to see them here.
               </Text>
             </View>
           )}
@@ -1528,15 +1537,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: hp(6),
+    paddingVertical: hp(4),
+    flexWrap: 'nowrap',
   },
   instructionIconBox: {
-    width: ms(32),
-    height: ms(32),
-    borderRadius: ms(16),
+    width: ms(26),
+    height: ms(26),
+    borderRadius: ms(13),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: wp(8),
+    marginRight: wp(6),
+    flexShrink: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -1544,16 +1555,17 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   instructionEmoji: {
-    fontSize: fp(18),
-    marginRight: wp(8),
+    fontSize: fp(16),
+    marginRight: wp(6),
   },
   instructionEmojiBox: {
-    width: ms(28),
-    height: ms(28),
-    borderRadius: ms(14),
+    width: ms(24),
+    height: ms(24),
+    borderRadius: ms(12),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: wp(8),
+    marginRight: wp(6),
+    flexShrink: 0,
   },
   instructionDivider: {
     height: 1,
@@ -1562,7 +1574,8 @@ const styles = StyleSheet.create({
     marginHorizontal: wp(20),
   },
   instructionText: {
-    fontSize: fp(14),
+    fontSize: fp(13),
+    flexShrink: 1,
   },
   instructionBold: {
     fontWeight: '700',

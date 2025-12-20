@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -554,31 +555,6 @@ export default function PriorityReviewScreen({ navigation }: any) {
           >
             <Icon name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
-
-          {/* Folder Button */}
-          <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: colors.accent.primary }]}
-            onPress={handleOpenFolderModal}
-          >
-            <Icon name="folder" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          {/* Shuffle Button */}
-          <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: colors.accent.primary }]}
-            onPress={handleShuffle}
-          >
-            <Icon name="shuffle" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          {/* Search Button */}
-          <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: colors.accent.primary }]}
-            onPress={() => setShowSearchModal(true)}
-          >
-            <Icon name="search" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-
         </View>
 
         <View style={styles.headerRight}>
@@ -645,24 +621,33 @@ export default function PriorityReviewScreen({ navigation }: any) {
 
       {/* Swipe instructions (stacks view only) */}
       {selectedView === 'stacks' && priorityArticles.length > 0 && (
-        <View style={[styles.instructionsBox, { backgroundColor: colors.accent.bg }]}>
+        <LinearGradient
+          colors={isDark ? [colors.background.tertiary, colors.background.secondary] : [colors.background.secondary, colors.background.tertiary]}
+          style={styles.instructionsBox}
+        >
           <View style={styles.instructionRow}>
-            <View style={[styles.instructionIconBox, { backgroundColor: colors.accent.bg }]}>
-              <Icon name="arrow-back" size={18} color={colors.accent.primary} />
+            <View style={[styles.instructionIconBox, { backgroundColor: colors.background.border }]}>
+              <Icon name="arrow-back" size={14} color={isDark ? '#FFFFFF' : colors.text.primary} />
             </View>
-            <Text style={[styles.instructionText, { color: colors.text.primary }]}>
-              Swipe left to <Text style={styles.instructionBold}>Skip</Text>
+            <View style={[styles.instructionEmojiBox, { backgroundColor: colors.accent.bg }]}>
+              <Icon name="hand-left-outline" size={14} color={colors.accent.primary} />
+            </View>
+            <Text style={[styles.instructionText, { color: colors.text.secondary }]}>
+              Swipe left to <Text style={[styles.instructionBold, { color: colors.text.primary }]}>Skip</Text>
             </Text>
           </View>
           <View style={styles.instructionRow}>
-            <View style={[styles.instructionIconBox, { backgroundColor: colors.accent.bg }]}>
-              <Icon name="arrow-forward" size={18} color={colors.accent.primary} />
+            <View style={[styles.instructionIconBox, { backgroundColor: colors.accent.primary }]}>
+              <Icon name="arrow-forward" size={14} color="#FFFFFF" />
             </View>
-            <Text style={[styles.instructionText, { color: colors.text.primary }]}>
-              Swipe right to <Text style={[styles.instructionBold, { color: '#3B82F6' }]}>Open</Text>
+            <View style={[styles.instructionEmojiBox, { backgroundColor: colors.accent.bg }]}>
+              <Icon name="open-outline" size={14} color={colors.accent.primary} />
+            </View>
+            <Text style={[styles.instructionText, { color: colors.text.secondary }]}>
+              Swipe right to <Text style={[styles.instructionBold, { color: colors.accent.primary }]}>Open</Text>
             </Text>
           </View>
-        </View>
+        </LinearGradient>
       )}
 
       {/* View mode selector */}
@@ -934,23 +919,45 @@ const styles = StyleSheet.create({
     marginBottom: hp(12),
     padding: wp(16),
     borderRadius: ms(20),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   instructionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: hp(10),
+    paddingVertical: hp(4),
+    flexWrap: 'nowrap',
   },
   instructionIconBox: {
-    width: ms(28),
-    height: ms(28),
-    borderRadius: ms(14),
+    width: ms(26),
+    height: ms(26),
+    borderRadius: ms(13),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: wp(10),
+    marginRight: wp(6),
+    flexShrink: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  instructionEmojiBox: {
+    width: ms(24),
+    height: ms(24),
+    borderRadius: ms(12),
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: wp(6),
+    flexShrink: 0,
   },
   instructionText: {
-    fontSize: fp(14),
+    fontSize: fp(13),
+    flexShrink: 1,
   },
   instructionBold: {
     fontWeight: '600',

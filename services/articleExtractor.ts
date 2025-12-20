@@ -243,10 +243,11 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
     const platform = detectPlatformFromUrl(url);
     console.log('[ArticleExtractor] Detected platform:', platform);
 
-    // For Instagram, TikTok, YouTube, and Reddit, use microlink.io metadata extraction
+    // For social media platforms, use microlink.io metadata extraction
     // This approach works better for social media metadata extraction (Jina can't scrape these)
     // Note: Twitter uses Jina (works well for public tweets)
-    if (platform === 'instagram' || platform === 'tiktok' || platform === 'youtube' || platform === 'reddit') {
+    const socialPlatforms = ['instagram', 'tiktok', 'youtube', 'reddit', 'facebook', 'snapchat'];
+    if (socialPlatforms.includes(platform)) {
       console.log('[ArticleExtractor] Using microlink.io extraction for', platform);
 
       let metadata = await fetchSocialMetadata(url);
@@ -258,9 +259,21 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
         youtube: 'YouTube',
         tiktok: 'TikTok',
         reddit: 'Reddit',
+        facebook: 'Facebook',
+        snapchat: 'Snapchat',
       };
       const platformName = platformNames[platform] || platform;
-      const contentType = platform === 'instagram' ? 'Reel' : platform === 'reddit' ? 'Post' : 'Video';
+
+      // Determine content type based on platform
+      const contentTypes: Record<string, string> = {
+        instagram: 'Reel',
+        youtube: 'Video',
+        tiktok: 'Video',
+        reddit: 'Post',
+        facebook: 'Post',
+        snapchat: 'Story',
+      };
+      const contentType = contentTypes[platform] || 'Post';
 
       // For YouTube: Check if microlink returned a generic/bad title, use oEmbed as fallback
       if (platform === 'youtube') {
@@ -287,7 +300,23 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
 
       // Build title from metadata or fallback
       let title = metadata.title;
-      if (!title || title.trim() === '' || title.toLowerCase().includes('login') || title.toLowerCase().includes('sign up')) {
+
+      // Check if title is unusable (login page, generic platform name, etc.)
+      const titleLower = (title || '').toLowerCase().trim();
+      const isUnusableTitle = !title ||
+        title.trim() === '' ||
+        titleLower.includes('log in') ||
+        titleLower.includes('login') ||
+        titleLower.includes('sign up') ||
+        titleLower.includes('sign in') ||
+        titleLower.includes('create an account') ||
+        titleLower === platformName.toLowerCase() ||
+        titleLower === 'facebook' ||
+        titleLower === 'snapchat' ||
+        titleLower === 'instagram' ||
+        titleLower === 'tiktok';
+
+      if (isUnusableTitle) {
         title = username ? `${platformName} ${contentType} by @${username}` : `${platformName} ${contentType}`;
       }
 
@@ -300,14 +329,15 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
 
       // Clean up description
       let description = metadata.description;
-      if (!description || description.trim() === '' || description.toLowerCase().includes('login')) {
+      const descLower = (description || '').toLowerCase();
+      if (!description || description.trim() === '' || descLower.includes('login') || descLower.includes('log in') || descLower.includes('sign up')) {
         description = `View this ${contentType.toLowerCase()} on ${platformName}`;
       }
 
       console.log('[ArticleExtractor] Social metadata extraction result:', { title, description, image: metadata.image });
 
-      // Determine if it's video content
-      const isVideoContent = platform !== 'reddit';
+      // Determine if it's video content (Reddit and Facebook posts are usually not video)
+      const isVideoContent = !['reddit', 'facebook'].includes(platform);
 
       return {
         title,
@@ -598,6 +628,22 @@ const extractUsernameFromUrl = (url: string, platform: PlatformType): string | n
       // Twitter/X URLs: twitter.com/username/status/ID or x.com/username/status/ID
       const match = url.match(/(?:twitter\.com|x\.com)\/([^\/]+)\/status\//);
       if (match && match[1] && !['i', 'intent'].includes(match[1])) {
+        return match[1];
+      }
+      return null;
+    }
+    if (platform === 'facebook') {
+      // Facebook URLs: facebook.com/username/posts/ID or facebook.com/profile.php?id=xxx
+      const match = url.match(/facebook\.com\/([^\/\?]+)/);
+      if (match && match[1] && !['share', 'watch', 'photo', 'video', 'groups', 'pages', 'profile.php', 'story.php'].includes(match[1])) {
+        return match[1];
+      }
+      return null;
+    }
+    if (platform === 'snapchat') {
+      // Snapchat URLs: snapchat.com/add/username or snapchat.com/spotlight/xxx
+      const match = url.match(/snapchat\.com\/(?:add\/)?([^\/\?]+)/);
+      if (match && match[1] && !['spotlight', 'discover', 'add'].includes(match[1])) {
         return match[1];
       }
       return null;

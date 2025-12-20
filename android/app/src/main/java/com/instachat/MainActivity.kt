@@ -7,6 +7,7 @@ import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
+import java.util.regex.Pattern
 
 class MainActivity : ReactActivity() {
 
@@ -49,6 +50,28 @@ class MainActivity : ReactActivity() {
   }
 
   /**
+   * Extract URL from shared text (handles Reddit, Facebook, etc.)
+   */
+  private fun extractUrlFromText(text: String): String {
+    // URL pattern to match http/https URLs
+    val urlPattern = Pattern.compile(
+      "(https?://[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=%]+)",
+      Pattern.CASE_INSENSITIVE
+    )
+    val matcher = urlPattern.matcher(text)
+
+    // Return first URL found, or original text if no URL found
+    return if (matcher.find()) {
+      val url = matcher.group(1) ?: text
+      Log.d("ShareIntent", "Extracted URL: $url from text: $text")
+      url
+    } else {
+      // No URL found, return original text (might be a plain URL)
+      text.trim()
+    }
+  }
+
+  /**
    * Safely handle share intent - queue if React isn't ready yet
    */
   private fun handleShareIntentSafely(intent: Intent) {
@@ -56,13 +79,17 @@ class MainActivity : ReactActivity() {
       val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
       Log.d("ShareIntent", "Received share intent with text: $sharedText")
 
+      // Extract URL from shared text (handles apps like Reddit/Facebook that include extra text)
+      val extractedUrl = extractUrlFromText(sharedText)
+      Log.d("ShareIntent", "Extracted URL to process: $extractedUrl")
+
       // Try to send immediately
       val module = SharedIntentModule.getInstance()
       if (module != null && module.hasReactContext()) {
-        module.onShareIntentReceived(sharedText)
+        module.onShareIntentReceived(extractedUrl)
       } else {
         // Store in SharedIntentModule for React Native to retrieve later
-        SharedIntentModule.setPendingShareUrl(sharedText)
+        SharedIntentModule.setPendingShareUrl(extractedUrl)
         Log.d("ShareIntent", "React context not ready, storing for later retrieval")
       }
     }

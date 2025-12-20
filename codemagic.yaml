@@ -24,6 +24,46 @@ workflows:
       - name: Install CocoaPods
         script: cd ios && pod install
 
+      - name: Add SharedIntentModule to Xcode project
+        script: |
+          cd ios
+          gem install xcodeproj
+          ruby <<EOF
+          require 'xcodeproj'
+
+          project_path = 'InstaChat.xcodeproj'
+          project = Xcodeproj::Project.open(project_path)
+
+          # Find main target
+          main_target = project.targets.find { |t| t.name == 'InstaChat' }
+
+          # Find or create the InstaChat group
+          main_group = project.main_group.find_subpath('InstaChat', false)
+
+          if main_group
+            # Check if files already exist
+            swift_exists = main_group.files.any? { |f| f.path&.include?('SharedIntentModule.swift') }
+            objc_exists = main_group.files.any? { |f| f.path&.include?('SharedIntentModule.m') }
+
+            unless swift_exists
+              swift_ref = main_group.new_file('InstaChat/SharedIntentModule.swift')
+              main_target.source_build_phase.add_file_reference(swift_ref)
+              puts "Added SharedIntentModule.swift"
+            end
+
+            unless objc_exists
+              objc_ref = main_group.new_file('InstaChat/SharedIntentModule.m')
+              main_target.source_build_phase.add_file_reference(objc_ref)
+              puts "Added SharedIntentModule.m"
+            end
+
+            project.save
+            puts "Project saved successfully"
+          else
+            puts "Warning: Could not find InstaChat group"
+          end
+          EOF
+
       - name: Set up code signing
         script: xcode-project use-profiles
 
