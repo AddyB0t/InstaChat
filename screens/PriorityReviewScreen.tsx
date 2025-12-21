@@ -28,7 +28,9 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
 import {
   Article,
+  Folder,
   getAllArticles,
+  getAllFolders,
   updateArticle,
   deleteArticle,
   createFolder,
@@ -65,6 +67,12 @@ export default function PriorityReviewScreen({ navigation }: any) {
   const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(false);
   const [openedArticleIds, setOpenedArticleIds] = useState<Set<number>>(new Set());
 
+  // Folder picker state
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
+  const [articleToAddToFolder, setArticleToAddToFolder] = useState<Article | null>(null);
+  const [newFolderName, setNewFolderName] = useState('');
+
   const loadPriorityArticles = useCallback(async () => {
     try {
       setLoading(true);
@@ -72,6 +80,10 @@ export default function PriorityReviewScreen({ navigation }: any) {
       const priority = allArticles.filter(a => a.isBookmarked);
       setPriorityArticles(priority);
       setCurrentIndex(0);
+
+      // Load folders for folder picker
+      const allFolders = await getAllFolders();
+      setFolders(allFolders);
     } catch (error) {
       console.error('[PriorityReviewScreen] Error loading articles:', error);
     } finally {
@@ -359,6 +371,69 @@ export default function PriorityReviewScreen({ navigation }: any) {
     }
   };
 
+  // ===== SINGLE ARTICLE FOLDER PICKER =====
+
+  const handleAddToFolderPress = (article: Article) => {
+    setArticleToAddToFolder(article);
+    setNewFolderName('');
+    setShowFolderPicker(true);
+  };
+
+  const handleSelectFolder = async (folder: Folder) => {
+    if (!articleToAddToFolder) return;
+
+    try {
+      await addArticlesToFolder(folder.id, [articleToAddToFolder.id.toString()]);
+      await updateArticle(articleToAddToFolder.id, { isBookmarked: false });
+
+      // Remove from priority list
+      const updated = priorityArticles.filter(a => a.id !== articleToAddToFolder.id);
+      setPriorityArticles(updated);
+
+      // Emit refresh event
+      DeviceEventEmitter.emit('refreshArticles');
+
+      setShowFolderPicker(false);
+      setArticleToAddToFolder(null);
+
+      Alert.alert('Added to Folder', `Article added to "${folder.name}".`);
+    } catch (error) {
+      console.error('[PriorityReviewScreen] Error adding to folder:', error);
+      Alert.alert('Error', 'Failed to add article to folder.');
+    }
+  };
+
+  const handleCreateNewFolderForArticle = async () => {
+    const trimmedName = newFolderName.trim();
+    if (!trimmedName || !articleToAddToFolder) return;
+
+    try {
+      const folder = await createFolder(trimmedName);
+      await addArticlesToFolder(folder.id, [articleToAddToFolder.id.toString()]);
+      await updateArticle(articleToAddToFolder.id, { isBookmarked: false });
+
+      // Remove from priority list
+      const updated = priorityArticles.filter(a => a.id !== articleToAddToFolder.id);
+      setPriorityArticles(updated);
+
+      // Refresh folders list
+      const allFolders = await getAllFolders();
+      setFolders(allFolders);
+
+      // Emit refresh event
+      DeviceEventEmitter.emit('refreshArticles');
+
+      setShowFolderPicker(false);
+      setArticleToAddToFolder(null);
+      setNewFolderName('');
+
+      Alert.alert('Folder Created', `Article added to new folder "${trimmedName}".`);
+    } catch (error) {
+      console.error('[PriorityReviewScreen] Error creating folder:', error);
+      Alert.alert('Error', 'Failed to create folder.');
+    }
+  };
+
   // Bottom navigation - switches view modes (Grid, Stacks)
   const renderViewModeSelector = () => (
     <View style={styles.navBarContainer}>
@@ -605,6 +680,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
                 onView={handleViewArticle}
                 onMarkAsRead={handleMarkAsRead}
                 onTagsSaved={refreshPriorityArticles}
+                onAddToFolder={handleAddToFolderPress}
                 isTopCard={index === 0}
                 colors={colors}
                 isDarkMode={isDark}
@@ -783,6 +859,98 @@ export default function PriorityReviewScreen({ navigation }: any) {
                 </TouchableOpacity>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Folder Picker Modal */}
+      <Modal
+        visible={showFolderPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setShowFolderPicker(false);
+          setArticleToAddToFolder(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => {
+              setShowFolderPicker(false);
+              setArticleToAddToFolder(null);
+            }}
+          />
+          <View style={[styles.folderModalContent, { backgroundColor: colors.background.secondary }]}>
+            {/* Swipe indicator */}
+            <View style={styles.modalSwipeIndicator}>
+              <View style={[styles.swipeHandle, { backgroundColor: colors.text.tertiary }]} />
+            </View>
+
+            {/* Header */}
+            <View style={styles.folderModalHeader}>
+              <Icon name="folder-open" size={fp(28)} color="#8B5CF6" />
+              <Text style={[styles.folderModalTitle, { color: colors.text.primary }]}>
+                Add to Custom Stack
+              </Text>
+              <Text style={[styles.folderModalSubtitle, { color: colors.text.tertiary }]}>
+                Select a folder or create a new one
+              </Text>
+            </View>
+
+            {/* Existing Folders */}
+            {folders.length > 0 && (
+              <View style={styles.folderPickerList}>
+                {folders.map((folder) => (
+                  <TouchableOpacity
+                    key={folder.id}
+                    style={[styles.folderPickerItem, { backgroundColor: colors.background.tertiary }]}
+                    onPress={() => handleSelectFolder(folder)}
+                  >
+                    <Icon name="folder" size={fp(20)} color="#8B5CF6" />
+                    <Text style={[styles.folderPickerItemText, { color: colors.text.primary }]}>
+                      {folder.name}
+                    </Text>
+                    <Text style={[styles.folderPickerItemCount, { color: colors.text.tertiary }]}>
+                      {folder.articleCount} articles
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Create New Folder */}
+            <View style={[styles.folderInputContainer, { borderColor: '#8B5CF6' }]}>
+              <TextInput
+                style={[styles.folderInput, { color: colors.text.primary }]}
+                placeholder="Create new folder..."
+                placeholderTextColor={colors.text.tertiary}
+                value={newFolderName}
+                onChangeText={setNewFolderName}
+                returnKeyType="done"
+                onSubmitEditing={handleCreateNewFolderForArticle}
+              />
+              {newFolderName.trim() && (
+                <TouchableOpacity
+                  style={[styles.createFolderButton, { backgroundColor: '#8B5CF6' }]}
+                  onPress={handleCreateNewFolderForArticle}
+                >
+                  <Icon name="add" size={fp(18)} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              style={[styles.folderCancelButton, { backgroundColor: colors.background.tertiary }]}
+              onPress={() => {
+                setShowFolderPicker(false);
+                setArticleToAddToFolder(null);
+              }}
+            >
+              <Text style={[styles.folderCancelText, { color: colors.text.secondary }]}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1233,5 +1401,37 @@ const styles = StyleSheet.create({
   duplicateCancelText: {
     fontSize: fp(14),
     fontWeight: '500',
+  },
+  // Folder Picker styles
+  folderPickerList: {
+    marginBottom: hp(16),
+    maxHeight: hp(200),
+  },
+  folderPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: hp(12),
+    paddingHorizontal: wp(14),
+    borderRadius: ms(12),
+    marginBottom: hp(8),
+    gap: wp(10),
+  },
+  folderPickerItemText: {
+    flex: 1,
+    fontSize: fp(15),
+    fontWeight: '600',
+  },
+  folderPickerItemCount: {
+    fontSize: fp(12),
+  },
+  createFolderButton: {
+    width: ms(36),
+    height: ms(36),
+    borderRadius: ms(18),
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    right: wp(8),
+    top: hp(7),
   },
 });

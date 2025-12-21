@@ -50,6 +50,7 @@ interface NotifSwipeCardProps {
   onTagsSaved?: () => void;
   onToggleReadStatus?: (articleId: number) => void;
   onMarkAsRead?: (articleId: number) => void;
+  onAddToFolder?: (article: Article) => void;
   isTopCard?: boolean;
   colors: ThemeColors;
   isDarkMode?: boolean;
@@ -68,6 +69,7 @@ export default function NotifSwipeCard({
   onTagsSaved,
   onToggleReadStatus,
   onMarkAsRead,
+  onAddToFolder,
   isTopCard = false,
   colors,
   isDarkMode = false,
@@ -763,16 +765,31 @@ export default function NotifSwipeCard({
               </TouchableOpacity>
             )}
 
-            {/* Skip and Priority/Return Buttons - 50/50 layout */}
+            {/* Skip/Custom Stack and Priority/Return Buttons - 50/50 layout */}
             <View style={styles.modalBottomButtons}>
-              {/* Skip Button */}
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: colors.background.tertiary }]}
-                onPress={handleSkip}
-              >
-                <Icon name="play-skip-forward" size={fp(18)} color={colors.text.secondary} />
-                <Text style={[styles.actionButtonText, { color: colors.text.secondary }]}>Skip</Text>
-              </TouchableOpacity>
+              {/* Skip or Custom Stack Button */}
+              {isPriorityView && onAddToFolder ? (
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: '#8B5CF6' }]}
+                  onPress={() => {
+                    setShowOptionsModal(false);
+                    setShowCustomInput(false);
+                    setCustomTagInput('');
+                    onAddToFolder(article);
+                  }}
+                >
+                  <Icon name="folder-open" size={fp(18)} color="#FFFFFF" />
+                  <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Custom Stack</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: colors.background.tertiary }]}
+                  onPress={handleSkip}
+                >
+                  <Icon name="play-skip-forward" size={fp(18)} color={colors.text.secondary} />
+                  <Text style={[styles.actionButtonText, { color: colors.text.secondary }]}>Skip</Text>
+                </TouchableOpacity>
+              )}
 
               {/* Priority/Return Button */}
               <TouchableOpacity
