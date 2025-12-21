@@ -560,7 +560,7 @@ export const getTagStats = async (): Promise<{name: string; count: number}[]> =>
 };
 
 /**
- * Get all bookmarked articles
+ * Get all bookmarked articles (Priority)
  */
 export const getBookmarkedArticles = async (): Promise<Article[]> => {
   try {
@@ -568,6 +568,19 @@ export const getBookmarkedArticles = async (): Promise<Article[]> => {
     return articles.filter(article => article.isBookmarked === true);
   } catch (error) {
     console.error('[Database] Error getting bookmarked articles:', error);
+    return [];
+  }
+};
+
+/**
+ * Get all favorite articles (Starred)
+ */
+export const getFavoriteArticles = async (): Promise<Article[]> => {
+  try {
+    const articles = await getAllArticles();
+    return articles.filter(article => article.isFavorite === true);
+  } catch (error) {
+    console.error('[Database] Error getting favorite articles:', error);
     return [];
   }
 };

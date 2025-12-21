@@ -67,11 +67,15 @@ export default function PriorityReviewScreen({ navigation }: any) {
   const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(false);
   const [openedArticleIds, setOpenedArticleIds] = useState<Set<number>>(new Set());
 
-  // Folder picker state
+  // Folder picker state (single article)
   const [folders, setFolders] = useState<Folder[]>([]);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [articleToAddToFolder, setArticleToAddToFolder] = useState<Article | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
+
+  // Save all to folder state
+  const [showSaveAllFolderPicker, setShowSaveAllFolderPicker] = useState(false);
+  const [saveAllFolderName, setSaveAllFolderName] = useState('');
 
   const loadPriorityArticles = useCallback(async () => {
     try {
@@ -434,7 +438,90 @@ export default function PriorityReviewScreen({ navigation }: any) {
     }
   };
 
-  // Bottom navigation - switches view modes (Grid, Stacks)
+  // ===== SAVE ALL ARTICLES TO FOLDER =====
+
+  const handleSaveAllToFolderPress = () => {
+    if (priorityArticles.length === 0) {
+      Alert.alert('No Articles', 'There are no articles to save.');
+      return;
+    }
+    setSaveAllFolderName('');
+    setShowSaveAllFolderPicker(true);
+  };
+
+  const handleSaveAllToExistingFolder = async (folder: Folder) => {
+    try {
+      const articleIds = priorityArticles.map(a => a.id.toString());
+      await addArticlesToFolder(folder.id, articleIds);
+
+      // Unbookmark all articles
+      for (const article of priorityArticles) {
+        await updateArticle(article.id, { isBookmarked: false });
+      }
+
+      // Clear priority list
+      setPriorityArticles([]);
+
+      // Refresh folders list
+      const allFolders = await getAllFolders();
+      setFolders(allFolders);
+
+      // Emit refresh event
+      DeviceEventEmitter.emit('refreshArticles');
+
+      setShowSaveAllFolderPicker(false);
+      setSaveAllFolderName('');
+
+      Alert.alert(
+        'Saved to Folder',
+        `${articleIds.length} articles saved to "${folder.name}".`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      console.error('[PriorityReviewScreen] Error saving all to folder:', error);
+      Alert.alert('Error', 'Failed to save articles to folder.');
+    }
+  };
+
+  const handleCreateNewFolderForAll = async () => {
+    const trimmedName = saveAllFolderName.trim();
+    if (!trimmedName || priorityArticles.length === 0) return;
+
+    try {
+      const folder = await createFolder(trimmedName);
+      const articleIds = priorityArticles.map(a => a.id.toString());
+      await addArticlesToFolder(folder.id, articleIds);
+
+      // Unbookmark all articles
+      for (const article of priorityArticles) {
+        await updateArticle(article.id, { isBookmarked: false });
+      }
+
+      // Clear priority list
+      setPriorityArticles([]);
+
+      // Refresh folders list
+      const allFolders = await getAllFolders();
+      setFolders(allFolders);
+
+      // Emit refresh event
+      DeviceEventEmitter.emit('refreshArticles');
+
+      setShowSaveAllFolderPicker(false);
+      setSaveAllFolderName('');
+
+      Alert.alert(
+        'Folder Created',
+        `${articleIds.length} articles saved to new folder "${trimmedName}".`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      console.error('[PriorityReviewScreen] Error creating folder for all:', error);
+      Alert.alert('Error', 'Failed to create folder.');
+    }
+  };
+
+  // Bottom navigation - switches view modes (Grid, Stacks, Custom)
   const renderViewModeSelector = () => (
     <View style={styles.navBarContainer}>
       <TouchableOpacity
@@ -454,6 +541,15 @@ export default function PriorityReviewScreen({ navigation }: any) {
         onPress={() => setSelectedView('stacks')}
       >
         <Icon name="layers" size={ms(18)} color={selectedView === 'stacks' ? '#FFFFFF' : colors.accent.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.navBarButton,
+          { backgroundColor: '#8B5CF6' },
+        ]}
+        onPress={handleSaveAllToFolderPress}
+      >
+        <Icon name="folder-open" size={ms(18)} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
@@ -556,7 +652,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
   // Empty state
   if (!loading && priorityArticles.length === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top', 'bottom', 'left', 'right']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top', 'left', 'right']}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         {/* Header */}
@@ -625,7 +721,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top', 'left', 'right']}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header with circular icon buttons */}
@@ -954,6 +1050,98 @@ export default function PriorityReviewScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* Save All to Folder Modal */}
+      <Modal
+        visible={showSaveAllFolderPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setShowSaveAllFolderPicker(false);
+          setSaveAllFolderName('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => {
+              setShowSaveAllFolderPicker(false);
+              setSaveAllFolderName('');
+            }}
+          />
+          <View style={[styles.folderModalContent, { backgroundColor: colors.background.secondary }]}>
+            {/* Swipe indicator */}
+            <View style={styles.modalSwipeIndicator}>
+              <View style={[styles.swipeHandle, { backgroundColor: colors.text.tertiary }]} />
+            </View>
+
+            {/* Header */}
+            <View style={styles.folderModalHeader}>
+              <Icon name="albums" size={fp(28)} color="#8B5CF6" />
+              <Text style={[styles.folderModalTitle, { color: colors.text.primary }]}>
+                Save Entire Stack
+              </Text>
+              <Text style={[styles.folderModalSubtitle, { color: colors.text.tertiary }]}>
+                Save all {priorityArticles.length} articles to a folder
+              </Text>
+            </View>
+
+            {/* Existing Folders */}
+            {folders.length > 0 && (
+              <View style={styles.folderPickerList}>
+                {folders.map((folder) => (
+                  <TouchableOpacity
+                    key={folder.id}
+                    style={[styles.folderPickerItem, { backgroundColor: colors.background.tertiary }]}
+                    onPress={() => handleSaveAllToExistingFolder(folder)}
+                  >
+                    <Icon name="folder" size={fp(20)} color="#8B5CF6" />
+                    <Text style={[styles.folderPickerItemText, { color: colors.text.primary }]}>
+                      {folder.name}
+                    </Text>
+                    <Text style={[styles.folderPickerItemCount, { color: colors.text.tertiary }]}>
+                      {folder.articleCount} articles
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Create New Folder */}
+            <View style={[styles.folderInputContainer, { borderColor: '#8B5CF6' }]}>
+              <TextInput
+                style={[styles.folderInput, { color: colors.text.primary }]}
+                placeholder="Create new folder..."
+                placeholderTextColor={colors.text.tertiary}
+                value={saveAllFolderName}
+                onChangeText={setSaveAllFolderName}
+                returnKeyType="done"
+                onSubmitEditing={handleCreateNewFolderForAll}
+              />
+              {saveAllFolderName.trim() && (
+                <TouchableOpacity
+                  style={[styles.createFolderButton, { backgroundColor: '#8B5CF6' }]}
+                  onPress={handleCreateNewFolderForAll}
+                >
+                  <Icon name="add" size={fp(18)} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              style={[styles.folderCancelButton, { backgroundColor: colors.background.tertiary }]}
+              onPress={() => {
+                setShowSaveAllFolderPicker(false);
+                setSaveAllFolderName('');
+              }}
+            >
+              <Text style={[styles.folderCancelText, { color: colors.text.secondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1147,7 +1335,7 @@ const styles = StyleSheet.create({
   },
   navBarWrapper: {
     paddingHorizontal: wp(20),
-    paddingBottom: hp(35),
+    paddingBottom: hp(55),
   },
   navBarContainer: {
     flexDirection: 'row',

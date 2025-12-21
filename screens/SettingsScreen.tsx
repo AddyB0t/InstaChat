@@ -20,7 +20,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeContext } from '../context/ThemeContext';
 import { getThemeColors } from '../styles/notifTheme';
 import { wp, hp, fp, ms } from '../utils/responsive';
-import { clearAllArticles, getAllArticles } from '../services/database';
+import { clearAllArticles } from '../services/database';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -29,27 +29,11 @@ interface SettingsScreenProps {
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const { settings, updateSettings } = useContext(ThemeContext);
   const systemColorScheme = useColorScheme();
-  const [priorityCount, setPriorityCount] = useState(0);
-
   const isDark =
     settings.theme === 'dark' ||
     (settings.theme === 'auto' && systemColorScheme === 'dark');
 
   const colors = getThemeColors(isDark);
-
-  useEffect(() => {
-    loadPriorityCount();
-  }, []);
-
-  const loadPriorityCount = async () => {
-    try {
-      const articles = await getAllArticles();
-      const count = articles.filter(a => a.isFavorite).length;
-      setPriorityCount(count);
-    } catch (error) {
-      console.error('Error loading priority count:', error);
-    }
-  };
 
   const handleThemePress = () => {
     // Navigate to theme selection screen or show modal
@@ -67,10 +51,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 
   const handleDarkModeToggle = (value: boolean) => {
     updateSettings({ theme: value ? 'dark' : 'light' });
-  };
-
-  const handlePriorityPress = () => {
-    navigation.navigate('PriorityReview');
   };
 
   const handleSortFilterPress = () => {
@@ -216,27 +196,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         <SectionHeader title="Collections" />
         <View style={styles.sectionContainer}>
           <SettingRow
-            icon="star"
-            iconBgColor="#F59E0B"
-            title="Starred"
-            subtitle="View your starred bookmarks"
-            onPress={handlePriorityPress}
-            rightElement={
-              priorityCount > 0 ? (
-                <View style={styles.countBadgeContainer}>
-                  <View style={[styles.countBadge, { borderColor: colors.text.tertiary }]}>
-                    <Text style={[styles.countBadgeText, { color: colors.text.secondary }]}>
-                      {priorityCount}
-                    </Text>
-                  </View>
-                  <Icon name="chevron-forward" size={ms(20)} color={colors.text.tertiary} />
-                </View>
-              ) : undefined
-            }
-            showChevron={priorityCount === 0}
-          />
-          <View style={styles.rowDivider} />
-          <SettingRow
             icon="funnel"
             iconBgColor={colors.accent.primary}
             title="Sort & Filter"
@@ -366,21 +325,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(128, 128, 128, 0.1)',
     marginLeft: wp(70),
-  },
-  countBadgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(8),
-  },
-  countBadge: {
-    paddingHorizontal: wp(10),
-    paddingVertical: hp(4),
-    borderRadius: ms(12),
-    borderWidth: 1,
-  },
-  countBadgeText: {
-    fontSize: fp(14),
-    fontWeight: '500',
   },
   footer: {
     alignItems: 'center',

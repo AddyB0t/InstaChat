@@ -127,6 +127,13 @@ export default function NotifSwipeCard({
     try {
       const wasBookmarked = article.isBookmarked;
       const newBookmarkState = !wasBookmarked;
+
+      console.log('[NotifSwipeCard] Toggling priority:', {
+        articleId: article.id,
+        wasBookmarked,
+        newBookmarkState,
+      });
+
       await updateArticle(article.id, { isBookmarked: newBookmarkState });
       setShowOptionsModal(false);
       setShowCustomInput(false);
@@ -136,7 +143,7 @@ export default function NotifSwipeCard({
         // Was not bookmarked, now saving to priority - swipe right to animate
         onSwipeRight(article.id);
       }
-      // Refresh the view to reflect the change
+      // Refresh the view to reflect the change - this will remove unbookmarked articles from priority view
       onTagsSaved?.();
     } catch (error) {
       console.error('[NotifSwipeCard] Error toggling priority:', error);
@@ -506,10 +513,10 @@ export default function NotifSwipeCard({
                   <View style={styles.headerRight}>
                     <Pressable
                       style={[styles.iconButton, { backgroundColor: colors.background.secondary }]}
-                      onPress={() => setShowVideoModal(true)}
+                      onPress={handlePreview}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Icon name="play" size={fp(14)} color={platformConfig.color} />
+                      <Icon name="eye" size={fp(14)} color={colors.text.secondary} />
                     </Pressable>
                     <Pressable
                       style={[styles.iconButton, { backgroundColor: platformConfig.color }]}
@@ -532,12 +539,6 @@ export default function NotifSwipeCard({
                     style={styles.videoThumbnail}
                     resizeMode={platform === 'youtube' ? 'contain' : 'cover'}
                   />
-                  {/* Play button overlay */}
-                  <View style={styles.playButtonOverlay}>
-                    <View style={[styles.playButton, { backgroundColor: platformConfig.color }]}>
-                      <Icon name="play" size={fp(24)} color="#FFFFFF" />
-                    </View>
-                  </View>
                 </TouchableOpacity>
 
                 {/* Title below thumbnail */}
@@ -553,6 +554,21 @@ export default function NotifSwipeCard({
                     <Text style={[styles.videoAuthorBelow, { color: colors.text.tertiary }]}>
                       @{article.author}
                     </Text>
+                  )}
+                  {/* User tags on video cards */}
+                  {article.tags && article.tags.length > 0 && (
+                    <View style={styles.videoTagsContainer}>
+                      {article.tags.slice(0, 3).map((tag, index) => (
+                        <View
+                          key={index}
+                          style={[styles.tagBadge, { backgroundColor: colors.accent.bg }]}
+                        >
+                          <Text style={[styles.tagText, { color: colors.accent.primary }]}>
+                            #{tag}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
                   )}
                 </View>
               </>
@@ -955,6 +971,12 @@ const styles = StyleSheet.create({
     fontSize: fp(11),
     fontWeight: '500',
     marginTop: hp(2),
+  },
+  videoTagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: wp(6),
+    marginTop: hp(6),
   },
   videoTimeText: {
     fontSize: fp(11),

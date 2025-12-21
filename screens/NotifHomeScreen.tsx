@@ -32,6 +32,7 @@ import {
   deleteArticle,
   updateArticle,
   getBookmarkedArticles,
+  getFavoriteArticles,
   getAllFolders,
   getArticlesByFolder,
   deleteFolder,
@@ -65,7 +66,8 @@ export default function NotifHomeScreen({ navigation }: any) {
   const [swipeHistory, setSwipeHistory] = useState<number[]>([]);
   const [showAddLinkModal, setShowAddLinkModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [bookmarkedArticles, setBookmarkedArticles] = useState<Article[]>([]);
+  const [bookmarkedArticles, setBookmarkedArticles] = useState<Article[]>([]); // Priority articles (isBookmarked)
+  const [favoriteArticles, setFavoriteArticles] = useState<Article[]>([]); // Starred articles (isFavorite)
   const [showBookmarksFolder, setShowBookmarksFolder] = useState(false);
 
   // Folder state
@@ -125,9 +127,13 @@ export default function NotifHomeScreen({ navigation }: any) {
       setPriorityArticles(priority);
       setCurrentIndex(0);
 
-      // Load bookmarked articles for Bookmarks folder
+      // Load bookmarked articles for Priority badge count
       const bookmarked = await getBookmarkedArticles();
       setBookmarkedArticles(bookmarked);
+
+      // Load favorite articles for Favorites folder
+      const favorites = await getFavoriteArticles();
+      setFavoriteArticles(favorites);
 
       // Load folders
       const allFolders = await getAllFolders();
@@ -281,30 +287,34 @@ export default function NotifHomeScreen({ navigation }: any) {
     }
   };
 
-  // Toggle bookmark status for an article
-  const handleToggleBookmark = async (article: Article) => {
+  // Toggle favorite (star) status for an article - separate from Priority
+  const handleToggleFavorite = async (article: Article) => {
     try {
-      const newBookmarkStatus = !article.isBookmarked;
-      await updateArticle(article.id, { isBookmarked: newBookmarkStatus });
-      // Refresh bookmarked articles
-      const bookmarked = await getBookmarkedArticles();
-      setBookmarkedArticles(bookmarked);
+      const newFavoriteStatus = !article.isFavorite;
+      await updateArticle(article.id, { isFavorite: newFavoriteStatus });
       // Update the article in both article lists
       setArticles(prev => prev.map(a =>
-        a.id === article.id ? { ...a, isBookmarked: newBookmarkStatus } : a
+        a.id === article.id ? { ...a, isFavorite: newFavoriteStatus } : a
       ));
       setAllArticles(prev => prev.map(a =>
-        a.id === article.id ? { ...a, isBookmarked: newBookmarkStatus } : a
+        a.id === article.id ? { ...a, isFavorite: newFavoriteStatus } : a
+      ));
+      // Refresh favorite articles for Favorites folder
+      const favorites = await getFavoriteArticles();
+      setFavoriteArticles(favorites);
+      // Also update priority articles list
+      setPriorityArticles(prev => prev.map(a =>
+        a.id === article.id ? { ...a, isFavorite: newFavoriteStatus } : a
       ));
     } catch (error) {
-      console.error('[NotifHomeScreen] Error toggling bookmark:', error);
+      console.error('[NotifHomeScreen] Error toggling favorite:', error);
     }
   };
 
-  // Open Bookmarks folder
+  // Open Favorites folder (starred articles)
   const handleOpenBookmarksFolder = async () => {
-    const bookmarked = await getBookmarkedArticles();
-    setBookmarkedArticles(bookmarked);
+    const favorites = await getFavoriteArticles();
+    setFavoriteArticles(favorites);
     setShowBookmarksFolder(true);
   };
 
@@ -874,14 +884,14 @@ export default function NotifHomeScreen({ navigation }: any) {
                   <TouchableOpacity
                     style={[
                       styles.gridBookmarkBtn,
-                      { backgroundColor: item.isBookmarked ? '#FEF3C7' : colors.background.secondary }
+                      { backgroundColor: item.isFavorite ? '#FEF3C7' : colors.background.secondary }
                     ]}
-                    onPress={() => handleToggleBookmark(item)}
+                    onPress={() => handleToggleFavorite(item)}
                   >
                     <Icon
-                      name={item.isBookmarked ? 'star' : 'star-outline'}
+                      name={item.isFavorite ? 'star' : 'star-outline'}
                       size={18}
-                      color={item.isBookmarked ? '#F59E0B' : colors.text.tertiary}
+                      color={item.isFavorite ? '#F59E0B' : colors.text.tertiary}
                     />
                   </TouchableOpacity>
                 </TouchableOpacity>
@@ -1035,7 +1045,7 @@ export default function NotifHomeScreen({ navigation }: any) {
               )}
             </View>
           ) : showBookmarksFolder ? (
-            // Show bookmarked articles
+            // Show favorite (starred) articles
             <View style={styles.tagFolderContent}>
               {/* Favorites folder header */}
               <View style={styles.tagFolderHeader}>
@@ -1049,13 +1059,13 @@ export default function NotifHomeScreen({ navigation }: any) {
                   Favorites
                 </Text>
                 <Text style={[styles.tagFolderCount, { color: colors.text.secondary }]}>
-                  {bookmarkedArticles.length} articles
+                  {favoriteArticles.length} articles
                 </Text>
               </View>
 
-              {/* Bookmarked articles */}
+              {/* Favorite articles */}
               <FlatList
-                data={bookmarkedArticles}
+                data={favoriteArticles}
                 renderItem={({ item }) => {
                   const platform = (item.platform?.toLowerCase() || 'web') as PlatformType;
                   const platformConfig = getPlatformConfig(platform);
@@ -1092,7 +1102,7 @@ export default function NotifHomeScreen({ navigation }: any) {
                 }
               />
             </View>
-          ) : (folders.length > 0 || bookmarkedArticles.length > 0) ? (
+          ) : (folders.length > 0 || favoriteArticles.length > 0) ? (
             // Show folders list with search
             <View style={styles.tagFoldersContainer}>
               {/* NotiF style header */}
@@ -1126,7 +1136,7 @@ export default function NotifHomeScreen({ navigation }: any) {
               <FlatList
                 data={[
                   // Add bookmarks as first item if exists
-                  ...(bookmarkedArticles.length > 0 ? [{ type: 'bookmarks' as const }] : []),
+                  ...(favoriteArticles.length > 0 ? [{ type: 'bookmarks' as const }] : []),
                   // Add folders
                   ...filteredFolders.map(f => ({ type: 'folder' as const, folder: f })),
                 ]}
@@ -1145,7 +1155,7 @@ export default function NotifHomeScreen({ navigation }: any) {
                             Favorites
                           </Text>
                           <Text style={[styles.tagFolderArticleCount, { color: colors.text.secondary }]}>
-                            {bookmarkedArticles.length} {bookmarkedArticles.length === 1 ? 'article' : 'articles'}
+                            {favoriteArticles.length} {favoriteArticles.length === 1 ? 'article' : 'articles'}
                           </Text>
                         </View>
                         <Icon name="chevron-forward" size={20} color={colors.text.tertiary} />

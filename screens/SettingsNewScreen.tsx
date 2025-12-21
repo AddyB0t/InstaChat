@@ -3,7 +3,7 @@
  * NotiF-style settings matching reference design
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
 import { ThemeColors } from '../styles/notifTheme';
-import { getAllArticles } from '../services/database';
 import { wp, hp, fp, ms } from '../utils/responsive';
 
 interface SettingsNewScreenProps {
@@ -82,27 +81,11 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
   const systemColorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
-  const [bookmarkedCount, setBookmarkedCount] = useState(0);
-
   const isDark =
     settings.theme === 'dark' ||
     (settings.theme === 'auto' && systemColorScheme === 'dark');
 
   const colors = getThemedColors(isDark);
-
-  useEffect(() => {
-    loadBookmarkedCount();
-  }, [settings]);
-
-  const loadBookmarkedCount = async () => {
-    try {
-      const articles = await getAllArticles();
-      const count = articles.filter(a => a.isBookmarked).length;
-      setBookmarkedCount(count);
-    } catch (error) {
-      console.error('Error loading bookmarked count:', error);
-    }
-  };
 
   const handleThemePress = () => {
     navigation.navigate('ThemeCustomization');
@@ -110,14 +93,6 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
 
   const handleDarkModeToggle = (value: boolean) => {
     updateTheme('theme', value ? 'dark' : 'light');
-  };
-
-  const handleBookmarkedPress = () => {
-    // Navigate to Library tab with bookmarked filter and grid view
-    navigation.navigate('Library', {
-      screen: 'SearchList',
-      params: { filter: 'bookmarked', viewMode: 'grid' },
-    });
   };
 
   const handleSortFilterPress = () => {
@@ -197,28 +172,6 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
         {/* Collections Section */}
         <SectionHeader title="Collections" colors={colors} />
         <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
-          <SettingRow
-            iconName="star"
-            iconBgColor="#F59E0B"
-            title="Favorites"
-            subtitle="View your saved favorites"
-            onPress={handleBookmarkedPress}
-            showChevron={bookmarkedCount === 0}
-            colors={colors}
-            rightElement={
-              bookmarkedCount > 0 ? (
-                <View style={styles.badgeChevronRow}>
-                  <View style={[styles.countBadge, { borderColor: colors.text.tertiary }]}>
-                    <Text style={[styles.countText, { color: colors.text.secondary }]}>
-                      {bookmarkedCount}
-                    </Text>
-                  </View>
-                  <Icon name="chevron-forward" size={ms(20)} color={colors.text.tertiary} />
-                </View>
-              ) : undefined
-            }
-          />
-          <View style={styles.rowDivider} />
           <SettingRow
             iconName="funnel"
             iconBgColor={colors.accent.primary}
@@ -340,21 +293,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(128, 128, 128, 0.15)',
     marginLeft: wp(68),
-  },
-  badgeChevronRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: wp(8),
-  },
-  countBadge: {
-    paddingHorizontal: wp(10),
-    paddingVertical: hp(4),
-    borderRadius: ms(12),
-    borderWidth: 1,
-  },
-  countText: {
-    fontSize: fp(14),
-    fontWeight: '500',
   },
   footer: {
     alignItems: 'center',
