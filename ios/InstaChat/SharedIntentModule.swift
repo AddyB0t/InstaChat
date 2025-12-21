@@ -56,12 +56,28 @@ class SharedIntentModule: RCTEventEmitter {
       return
     }
 
-    // Also check UserDefaults (app group) as fallback
+    // Check UserDefaults (app group) for queued URLs
     let appGroupId = "group.com.notif.bookmark"
     let sharedKey = "ShareKey"
+    let sharedQueueKey = "ShareQueue"
 
-    if let userDefaults = UserDefaults(suiteName: appGroupId),
-       let sharedUrl = userDefaults.string(forKey: sharedKey) {
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      resolve(nil)
+      return
+    }
+
+    // First check queue
+    if var queue = userDefaults.stringArray(forKey: sharedQueueKey), !queue.isEmpty {
+      // Pop first URL from queue
+      let url = queue.removeFirst()
+      userDefaults.set(queue, forKey: sharedQueueKey)
+      userDefaults.synchronize()
+      resolve(url)
+      return
+    }
+
+    // Fallback: check single URL
+    if let sharedUrl = userDefaults.string(forKey: sharedKey) {
       userDefaults.removeObject(forKey: sharedKey)
       userDefaults.synchronize()
       resolve(sharedUrl)
@@ -69,6 +85,36 @@ class SharedIntentModule: RCTEventEmitter {
     }
 
     resolve(nil)
+  }
+
+  @objc
+  func checkPendingShareQueue(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    // Return all pending URLs as an array
+    let appGroupId = "group.com.notif.bookmark"
+    let sharedQueueKey = "ShareQueue"
+    let sharedKey = "ShareKey"
+
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      resolve([])
+      return
+    }
+
+    var allUrls: [String] = []
+
+    // Get queue
+    if let queue = userDefaults.stringArray(forKey: sharedQueueKey) {
+      allUrls.append(contentsOf: queue)
+      userDefaults.removeObject(forKey: sharedQueueKey)
+    }
+
+    // Get single URL if exists and not in queue
+    if let singleUrl = userDefaults.string(forKey: sharedKey), !allUrls.contains(singleUrl) {
+      allUrls.append(singleUrl)
+      userDefaults.removeObject(forKey: sharedKey)
+    }
+
+    userDefaults.synchronize()
+    resolve(allUrls)
   }
 
   @objc

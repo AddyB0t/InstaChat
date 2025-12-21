@@ -18,11 +18,29 @@ workflows:
       cocoapods: default
 
     scripts:
+      - name: Pre-build cleanup
+        script: |
+          echo "Cleaning Xcode derived data..."
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+
+          echo "Cleaning iOS build folder..."
+          rm -rf ios/build
+
+          echo "Cleaning Metro cache..."
+          rm -rf node_modules/.cache
+          rm -rf $TMPDIR/metro-*
+          rm -rf $TMPDIR/haste-map-*
+
+          echo "Pre-build cleanup complete"
+
       - name: Install npm dependencies
         script: npm install --legacy-peer-deps
 
-      - name: Install CocoaPods
-        script: cd ios && pod install
+      - name: Clean and Install CocoaPods
+        script: |
+          cd ios
+          rm -rf Pods Podfile.lock
+          pod install --repo-update
 
       - name: Add SharedIntentModule to Xcode project
         script: |

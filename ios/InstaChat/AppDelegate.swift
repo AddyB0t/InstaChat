@@ -10,8 +10,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   var reactNativeDelegate: ReactNativeDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
 
-  // Store pending shared URL
+  // Store pending shared URLs (queue)
   static var pendingShareUrl: String?
+  static var pendingShareQueue: [String] = []
 
   func application(
     _ application: UIApplication,
@@ -72,13 +73,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   private func checkForSharedUrl() {
     let appGroupId = "group.com.notif.bookmark"
     let sharedKey = "ShareKey"
+    let sharedQueueKey = "ShareQueue"
 
-    if let userDefaults = UserDefaults(suiteName: appGroupId),
-       let sharedUrl = userDefaults.string(forKey: sharedKey) {
-      // Clear the shared URL
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else { return }
+
+    // First, check for queued URLs (multiple shares)
+    if let queue = userDefaults.stringArray(forKey: sharedQueueKey), !queue.isEmpty {
+      // Clear the queue
+      userDefaults.removeObject(forKey: sharedQueueKey)
       userDefaults.removeObject(forKey: sharedKey)
       userDefaults.synchronize()
 
+      // Process all URLs in queue
+      for url in queue {
+        handleSharedUrl(url)
+      }
+      return
+    }
+
+    // Fallback: check single URL for backward compatibility
+    if let sharedUrl = userDefaults.string(forKey: sharedKey) {
+      userDefaults.removeObject(forKey: sharedKey)
+      userDefaults.synchronize()
       handleSharedUrl(sharedUrl)
     }
   }

@@ -17,6 +17,8 @@ import { saveArticle, updateArticle } from './services/database';
 import OnboardingScreen from './screens/OnboardingScreen';
 
 const ONBOARDING_KEY = '@instachat_onboarding_complete';
+const APP_VERSION_KEY = '@instachat_app_version';
+const CURRENT_APP_VERSION = '1.0.6'; // Increment this with each release
 
 const { SharedIntentModule } = NativeModules;
 
@@ -43,6 +45,25 @@ function AppContent() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const mainFadeAnim = useRef(new Animated.Value(0)).current;
   const navigationRef = useRef<any>(null);
+
+  // Check for app update and clear caches if needed
+  useEffect(() => {
+    const checkAppVersion = async () => {
+      try {
+        const storedVersion = await AsyncStorage.getItem(APP_VERSION_KEY);
+        if (storedVersion !== CURRENT_APP_VERSION) {
+          console.log(`[App] App updated from ${storedVersion || 'unknown'} to ${CURRENT_APP_VERSION}, clearing caches...`);
+          // Don't clear everything - preserve user data like onboarding status
+          // Just update the version marker
+          await AsyncStorage.setItem(APP_VERSION_KEY, CURRENT_APP_VERSION);
+          console.log('[App] Version marker updated');
+        }
+      } catch (error) {
+        console.log('[App] Error checking app version:', error);
+      }
+    };
+    checkAppVersion();
+  }, []);
 
   // Check if onboarding has been completed
   useEffect(() => {
@@ -151,18 +172,30 @@ function AppContent() {
     }
   };
 
-  // Check for pending share URL on startup (cold start case)
+  // Check for pending share URLs on startup (cold start case) - supports queue
   useEffect(() => {
     if (SharedIntentModule) {
       const checkPending = async () => {
         try {
+          // First try to get all queued URLs
+          const pendingUrls = await SharedIntentModule.checkPendingShareQueue?.();
+          if (pendingUrls && Array.isArray(pendingUrls) && pendingUrls.length > 0) {
+            console.log(`[App] Found ${pendingUrls.length} pending share URLs from queue:`, pendingUrls);
+            // Process each URL sequentially
+            for (const url of pendingUrls) {
+              await handleSharedUrl(url);
+            }
+            return;
+          }
+
+          // Fallback to single URL check for backward compatibility
           const pendingUrl = await SharedIntentModule.checkPendingShareUrl();
           if (pendingUrl) {
             console.log('[App] Found pending share URL from cold start:', pendingUrl);
             handleSharedUrl(pendingUrl);
           }
         } catch (error) {
-          console.log('[App] Error checking pending share URL:', error);
+          console.log('[App] Error checking pending share URLs:', error);
         }
       };
       // Small delay to ensure app is fully mounted

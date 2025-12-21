@@ -5,6 +5,7 @@ class ShareViewController: UIViewController {
 
     let appGroupId = "group.com.notif.bookmark"
     let sharedKey = "ShareKey"
+    let sharedQueueKey = "ShareQueue" // Array of URLs for queuing multiple shares
 
     // UI Elements
     private let containerView = UIView()
@@ -167,12 +168,66 @@ class ShareViewController: UIViewController {
     private func saveURL(_ urlString: String) {
         // Save to App Group UserDefaults
         if let userDefaults = UserDefaults(suiteName: appGroupId) {
+            // Save URL for the app to pick up
             userDefaults.set(urlString, forKey: sharedKey)
             userDefaults.set(Date().timeIntervalSince1970, forKey: "ShareTimestamp")
             userDefaults.synchronize()
-            showSuccess()
+
+            // Show brief success then open the app
+            showSuccessAndOpenApp(urlString)
         } else {
             showError()
+        }
+    }
+
+    private func showSuccessAndOpenApp(_ urlString: String) {
+        UIView.animate(withDuration: 0.2) {
+            self.iconView.alpha = 0
+            self.checkmarkView.alpha = 1
+            self.statusLabel.text = "Opening NotiF..."
+            self.statusLabel.textColor = UIColor(red: 34/255, green: 197/255, blue: 94/255, alpha: 1)
+        }
+
+        // Open the app via URL scheme after brief delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.openContainingApp(with: urlString)
+        }
+    }
+
+    private func openContainingApp(with urlString: String) {
+        // Encode the URL for passing via URL scheme
+        guard let encodedUrl = urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let appUrl = URL(string: "notif://share?url=\(encodedUrl)") else {
+            self.dismissExtension()
+            return
+        }
+
+        // Open containing app via URL scheme
+        var responder: UIResponder? = self
+        while responder != nil {
+            if let application = responder as? UIApplication {
+                application.open(appUrl, options: [:]) { _ in
+                    self.dismissExtension()
+                }
+                return
+            }
+            responder = responder?.next
+        }
+
+        // Fallback: use openURL selector (works in extensions)
+        let selector = sel_registerName("openURL:")
+        responder = self
+        while responder != nil {
+            if responder!.responds(to: selector) {
+                responder!.perform(selector, with: appUrl)
+                break
+            }
+            responder = responder?.next
+        }
+
+        // Dismiss after attempting to open
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.dismissExtension()
         }
     }
 
