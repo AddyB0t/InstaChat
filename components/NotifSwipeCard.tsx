@@ -51,6 +51,7 @@ interface NotifSwipeCardProps {
   onToggleReadStatus?: (articleId: number) => void;
   onMarkAsRead?: (articleId: number) => void;
   onAddToFolder?: (article: Article) => void;
+  onAddStackToFolder?: () => void;
   isTopCard?: boolean;
   colors: ThemeColors;
   isDarkMode?: boolean;
@@ -70,6 +71,7 @@ export default function NotifSwipeCard({
   onToggleReadStatus,
   onMarkAsRead,
   onAddToFolder,
+  onAddStackToFolder,
   isTopCard = false,
   colors,
   isDarkMode = false,
@@ -781,23 +783,40 @@ export default function NotifSwipeCard({
               </TouchableOpacity>
             )}
 
-            {/* Skip/Custom Stack and Priority/Return Buttons - 50/50 layout */}
-            <View style={styles.modalBottomButtons}>
-              {/* Skip or Custom Stack Button */}
-              {isPriorityView && onAddToFolder ? (
+            {/* Custom Card/Custom Stack buttons for Priority view, or Skip/Priority for main view */}
+            {isPriorityView && (onAddToFolder || onAddStackToFolder) ? (
+              <View style={styles.modalBottomButtons}>
+                {/* Custom Card - saves only current card */}
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: '#8B5CF6' }]}
                   onPress={() => {
                     setShowOptionsModal(false);
                     setShowCustomInput(false);
                     setCustomTagInput('');
-                    onAddToFolder(article);
+                    if (onAddToFolder) onAddToFolder(article);
                   }}
                 >
-                  <Icon name="folder-open" size={fp(18)} color="#FFFFFF" />
+                  <Icon name="document" size={fp(18)} color="#FFFFFF" />
+                  <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Custom Card</Text>
+                </TouchableOpacity>
+
+                {/* Custom Stack - saves entire priority stack */}
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: '#8B5CF6' }]}
+                  onPress={() => {
+                    setShowOptionsModal(false);
+                    setShowCustomInput(false);
+                    setCustomTagInput('');
+                    if (onAddStackToFolder) onAddStackToFolder();
+                  }}
+                >
+                  <Icon name="albums" size={fp(18)} color="#FFFFFF" />
                   <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Custom Stack</Text>
                 </TouchableOpacity>
-              ) : (
+              </View>
+            ) : (
+              <View style={styles.modalBottomButtons}>
+                {/* Skip Button */}
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: colors.background.tertiary }]}
                   onPress={handleSkip}
@@ -805,26 +824,26 @@ export default function NotifSwipeCard({
                   <Icon name="play-skip-forward" size={fp(18)} color={colors.text.secondary} />
                   <Text style={[styles.actionButtonText, { color: colors.text.secondary }]}>Skip</Text>
                 </TouchableOpacity>
-              )}
 
-              {/* Priority/Return Button */}
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: article.isBookmarked ? colors.accent.primary : colors.accent.primary }
-                ]}
-                onPress={handlePriorityToggle}
-              >
-                <Icon
-                  name={article.isBookmarked ? 'arrow-undo' : 'heart'}
-                  size={fp(18)}
-                  color="#FFFFFF"
-                />
-                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
-                  {article.isBookmarked ? 'Return to Stack' : 'Save to Priority'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                {/* Priority/Return Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    { backgroundColor: colors.accent.primary }
+                  ]}
+                  onPress={handlePriorityToggle}
+                >
+                  <Icon
+                    name={article.isBookmarked ? 'arrow-undo' : 'heart'}
+                    size={fp(18)}
+                    color="#FFFFFF"
+                  />
+                  <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
+                    {article.isBookmarked ? 'Return to Stack' : 'Save to Priority'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Delete Button */}
             {onDelete && (

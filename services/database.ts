@@ -65,8 +65,10 @@ export interface AppSettings {
   fontSize: 'small' | 'medium' | 'large';
   fontFamily: 'serif' | 'sans-serif';
   defaultView: 'all' | 'unread';
-  platformFilter?: PlatformType | 'all'; // Platform filter setting
+  platformFilter?: PlatformType | 'all' | string; // Platform filter setting (can be comma-separated)
   sortBy?: 'random' | 'date' | 'platform'; // Sort preference
+  filterMonth?: number | null; // Month filter (0-11)
+  filterYear?: number | null; // Year filter
   // Dark mode customization
   darkAccent?: 'orange' | 'cyan' | 'lime';
   darkBackground?: 'true-black' | 'matte-gray' | 'midnight';

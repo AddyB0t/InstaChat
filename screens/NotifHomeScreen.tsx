@@ -21,7 +21,7 @@ import {
   DeviceEventEmitter,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
@@ -49,6 +49,7 @@ type ReadFilter = 'all' | 'read' | 'unread';
 export default function NotifHomeScreen({ navigation }: any) {
   const { settings, getThemedColors } = useTheme();
   const systemColorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
 
   const isDark =
     settings.theme === 'dark' ||
@@ -594,13 +595,15 @@ export default function NotifHomeScreen({ navigation }: any) {
       {/* Header with circular icon buttons */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          {/* Add Link Button */}
-          <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: colors.accent.primary }]}
-            onPress={() => setShowAddLinkModal(true)}
-          >
-            <Icon name="add-circle" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          {/* Add Link Button - Hide in custom/folders view */}
+          {selectedView !== 'custom' && (
+            <TouchableOpacity
+              style={[styles.headerButton, { backgroundColor: colors.accent.primary }]}
+              onPress={() => setShowAddLinkModal(true)}
+            >
+              <Icon name="add-circle" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
 
           {/* Shuffle Button - Only show in stacks view */}
           {selectedView === 'stacks' && (
@@ -1227,7 +1230,7 @@ export default function NotifHomeScreen({ navigation }: any) {
 
 
       {/* View mode selector */}
-      <View style={styles.navBarWrapper}>
+      <View style={[styles.navBarWrapper, { paddingBottom: hp(20) + insets.bottom }]}>
         {renderViewModeSelector()}
       </View>
 
@@ -1626,7 +1629,6 @@ const styles = StyleSheet.create({
   },
   navBarWrapper: {
     paddingHorizontal: wp(20),
-    paddingBottom: hp(55),
   },
   navBarContainer: {
     flexDirection: 'row',
@@ -1886,7 +1888,6 @@ const styles = StyleSheet.create({
   // Tag Folders styles
   tagFoldersContainer: {
     flex: 1,
-    paddingTop: hp(20),
     width: '100%',
   },
   tagFoldersHeader: {

@@ -22,7 +22,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
@@ -47,6 +47,7 @@ type ViewMode = 'stacks' | 'grid';
 export default function PriorityReviewScreen({ navigation }: any) {
   const { settings, getThemedColors } = useTheme();
   const systemColorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
 
   const isDark =
     settings.theme === 'dark' ||
@@ -223,12 +224,37 @@ export default function PriorityReviewScreen({ navigation }: any) {
     setCurrentIndex(0);
   };
 
-  const handleMoveAllBack = () => {
+  const handleMoveBack = () => {
+    if (priorityArticles.length === 0) return;
+
     Alert.alert(
-      'Move All Back',
-      'Move all priority articles back to the main feed?',
+      'Move to Main Feed',
+      'Move articles back to the main feed?',
       [
         { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Move',
+          onPress: async () => {
+            try {
+              // Move only the top card (current card)
+              const topArticle = priorityArticles[currentIndex];
+              if (topArticle) {
+                await updateArticle(topArticle.id, { isBookmarked: false });
+                const updated = priorityArticles.filter(a => a.id !== topArticle.id);
+                setPriorityArticles(updated);
+                if (updated.length === 0) {
+                  navigation.goBack();
+                } else if (currentIndex >= updated.length) {
+                  setCurrentIndex(0);
+                }
+                // Emit refresh event
+                DeviceEventEmitter.emit('refreshArticles');
+              }
+            } catch (error) {
+              console.error('Error moving article:', error);
+            }
+          },
+        },
         {
           text: 'Move All',
           style: 'destructive',
@@ -238,6 +264,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
                 await updateArticle(article.id, { isBookmarked: false });
               }
               setPriorityArticles([]);
+              DeviceEventEmitter.emit('refreshArticles');
               navigation.goBack();
             } catch (error) {
               console.error('Error moving articles:', error);
@@ -388,11 +415,6 @@ export default function PriorityReviewScreen({ navigation }: any) {
 
     try {
       await addArticlesToFolder(folder.id, [articleToAddToFolder.id.toString()]);
-      await updateArticle(articleToAddToFolder.id, { isBookmarked: false });
-
-      // Remove from priority list
-      const updated = priorityArticles.filter(a => a.id !== articleToAddToFolder.id);
-      setPriorityArticles(updated);
 
       // Emit refresh event
       DeviceEventEmitter.emit('refreshArticles');
@@ -400,7 +422,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
       setShowFolderPicker(false);
       setArticleToAddToFolder(null);
 
-      Alert.alert('Added to Folder', `Article added to "${folder.name}".`);
+      Alert.alert('Added to Folder', `Article added to "${folder.name}". It remains in Priority.`);
     } catch (error) {
       console.error('[PriorityReviewScreen] Error adding to folder:', error);
       Alert.alert('Error', 'Failed to add article to folder.');
@@ -414,11 +436,6 @@ export default function PriorityReviewScreen({ navigation }: any) {
     try {
       const folder = await createFolder(trimmedName);
       await addArticlesToFolder(folder.id, [articleToAddToFolder.id.toString()]);
-      await updateArticle(articleToAddToFolder.id, { isBookmarked: false });
-
-      // Remove from priority list
-      const updated = priorityArticles.filter(a => a.id !== articleToAddToFolder.id);
-      setPriorityArticles(updated);
 
       // Refresh folders list
       const allFolders = await getAllFolders();
@@ -431,7 +448,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
       setArticleToAddToFolder(null);
       setNewFolderName('');
 
-      Alert.alert('Folder Created', `Article added to new folder "${trimmedName}".`);
+      Alert.alert('Folder Created', `Article added to new folder "${trimmedName}". It remains in Priority.`);
     } catch (error) {
       console.error('[PriorityReviewScreen] Error creating folder:', error);
       Alert.alert('Error', 'Failed to create folder.');
@@ -521,7 +538,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
     }
   };
 
-  // Bottom navigation - switches view modes (Grid, Stacks, Custom)
+  // Bottom navigation - switches view modes (Grid, Stacks)
   const renderViewModeSelector = () => (
     <View style={styles.navBarContainer}>
       <TouchableOpacity
@@ -541,15 +558,6 @@ export default function PriorityReviewScreen({ navigation }: any) {
         onPress={() => setSelectedView('stacks')}
       >
         <Icon name="layers" size={ms(18)} color={selectedView === 'stacks' ? '#FFFFFF' : colors.accent.primary} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[
-          styles.navBarButton,
-          { backgroundColor: '#8B5CF6' },
-        ]}
-        onPress={handleSaveAllToFolderPress}
-      >
-        <Icon name="folder-open" size={ms(18)} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
@@ -713,7 +721,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
         </View>
 
         {/* View mode selector */}
-        <View style={styles.navBarWrapper}>
+        <View style={[styles.navBarWrapper, { paddingBottom: hp(20) + insets.bottom }]}>
           {renderViewModeSelector()}
         </View>
       </SafeAreaView>
@@ -740,7 +748,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
           {/* Cards Count Badge */}
           <TouchableOpacity
             style={[styles.countBadge, { backgroundColor: colors.accent.primary }]}
-            onPress={handleMoveAllBack}
+            onPress={handleMoveBack}
           >
             <Text style={styles.countText}>{priorityArticles.length} cards</Text>
           </TouchableOpacity>
@@ -777,6 +785,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
                 onMarkAsRead={handleMarkAsRead}
                 onTagsSaved={refreshPriorityArticles}
                 onAddToFolder={handleAddToFolderPress}
+                onAddStackToFolder={handleSaveAllToFolderPress}
                 isTopCard={index === 0}
                 colors={colors}
                 isDarkMode={isDark}
@@ -831,7 +840,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
       )}
 
       {/* View mode selector */}
-      <View style={styles.navBarWrapper}>
+      <View style={[styles.navBarWrapper, { paddingBottom: hp(20) + insets.bottom }]}>
         {renderViewModeSelector()}
       </View>
 
@@ -1335,7 +1344,6 @@ const styles = StyleSheet.create({
   },
   navBarWrapper: {
     paddingHorizontal: wp(20),
-    paddingBottom: hp(55),
   },
   navBarContainer: {
     flexDirection: 'row',

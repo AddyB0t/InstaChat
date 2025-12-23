@@ -23,7 +23,7 @@ interface SortFilterScreenProps {
 }
 
 type SortOption = 'vintage' | 'new-arrivals';
-type PlatformFilter = 'github' | 'twitter' | 'facebook' | 'instagram' | 'youtube' | 'reddit' | 'linkedin';
+type PlatformFilter = 'github' | 'twitter' | 'facebook' | 'instagram' | 'youtube' | 'reddit' | 'linkedin' | 'tiktok' | 'snapchat' | 'browser';
 
 const sortOptions: { id: SortOption; name: string; icon: string }[] = [
   { id: 'vintage', name: 'Vintage', icon: 'time-outline' },
@@ -38,7 +38,20 @@ const platformFilters: { id: PlatformFilter; name: string; icon: string; color: 
   { id: 'youtube', name: 'YouTube', icon: 'logo-youtube', color: '#FF0000' },
   { id: 'reddit', name: 'Reddit', icon: 'logo-reddit', color: '#FF4500' },
   { id: 'linkedin', name: 'LinkedIn', icon: 'logo-linkedin', color: '#0A66C2' },
+  { id: 'tiktok', name: 'TikTok', icon: 'logo-tiktok', color: '#000000' },
+  { id: 'snapchat', name: 'Snapchat', icon: 'logo-snapchat', color: '#FFFC00' },
+  { id: 'browser', name: 'Browser', icon: 'globe-outline', color: '#6366F1' },
 ];
+
+// Generate month options
+const months = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+// Generate year options (last 5 years)
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
 export const SortFilterScreen: React.FC<SortFilterScreenProps> = ({ navigation }) => {
   const { settings, updateTheme, getThemedColors } = useTheme();
@@ -57,6 +70,12 @@ export const SortFilterScreen: React.FC<SortFilterScreenProps> = ({ navigation }
     settings.platformFilter && settings.platformFilter !== 'all'
       ? [settings.platformFilter as PlatformFilter]
       : []
+  );
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(
+    settings.filterMonth !== undefined ? settings.filterMonth : null
+  );
+  const [selectedYear, setSelectedYear] = useState<number | null>(
+    settings.filterYear !== undefined ? settings.filterYear : null
   );
 
   const handleSortSelect = async (sort: SortOption) => {
@@ -82,6 +101,18 @@ export const SortFilterScreen: React.FC<SortFilterScreenProps> = ({ navigation }
       // For multiple platforms, we'll handle this in the filtering logic
       await updateTheme('platformFilter', newSelected.join(','));
     }
+  };
+
+  const handleMonthSelect = async (monthIndex: number) => {
+    const newMonth = selectedMonth === monthIndex ? null : monthIndex;
+    setSelectedMonth(newMonth);
+    await updateTheme('filterMonth', newMonth);
+  };
+
+  const handleYearSelect = async (year: number) => {
+    const newYear = selectedYear === year ? null : year;
+    setSelectedYear(newYear);
+    await updateTheme('filterYear', newYear);
   };
 
   return (
@@ -162,13 +193,82 @@ export const SortFilterScreen: React.FC<SortFilterScreenProps> = ({ navigation }
           ))}
         </View>
 
+        {/* Filter by Month Section */}
+        <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
+          Filter by Month
+        </Text>
+        <View style={styles.chipContainer}>
+          {months.map((month, index) => (
+            <TouchableOpacity
+              key={month}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: selectedMonth === index
+                    ? colors.accent.primary
+                    : colors.background.secondary,
+                }
+              ]}
+              onPress={() => handleMonthSelect(index)}
+            >
+              <Text style={[
+                styles.chipText,
+                {
+                  color: selectedMonth === index
+                    ? '#FFFFFF'
+                    : colors.text.primary,
+                }
+              ]}>
+                {month.substring(0, 3)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Filter by Year Section */}
+        <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
+          Filter by Year
+        </Text>
+        <View style={styles.chipContainer}>
+          {years.map((year) => (
+            <TouchableOpacity
+              key={year}
+              style={[
+                styles.chip,
+                styles.yearChip,
+                {
+                  backgroundColor: selectedYear === year
+                    ? colors.accent.primary
+                    : colors.background.secondary,
+                }
+              ]}
+              onPress={() => handleYearSelect(year)}
+            >
+              <Text style={[
+                styles.chipText,
+                {
+                  color: selectedYear === year
+                    ? '#FFFFFF'
+                    : colors.text.primary,
+                }
+              ]}>
+                {year}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* Clear Filters Button */}
-        {selectedPlatforms.length > 0 && (
+        {(selectedPlatforms.length > 0 || selectedMonth !== null || selectedYear !== null) && (
           <TouchableOpacity
             style={[styles.clearButton, { borderColor: colors.accent.primary }]}
             onPress={async () => {
               setSelectedPlatforms([]);
+              setSelectedMonth(null);
+              setSelectedYear(null);
               await updateTheme('platformFilter', 'all');
+              await updateTheme('filterMonth', null);
+              await updateTheme('filterYear', null);
             }}
           >
             <Text style={[styles.clearButtonText, { color: colors.accent.primary }]}>
@@ -269,6 +369,26 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     fontSize: fp(15),
+    fontWeight: '600',
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: wp(8),
+    marginBottom: hp(8),
+  },
+  chip: {
+    paddingHorizontal: wp(14),
+    paddingVertical: hp(10),
+    borderRadius: ms(12),
+    minWidth: wp(60),
+    alignItems: 'center',
+  },
+  yearChip: {
+    minWidth: wp(70),
+  },
+  chipText: {
+    fontSize: fp(13),
     fontWeight: '600',
   },
 });
