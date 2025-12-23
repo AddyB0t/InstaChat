@@ -723,7 +723,7 @@ export default function NotifHomeScreen({ navigation }: any) {
             {/* Swipe Instructions */}
             <LinearGradient
               colors={isDark ? [colors.background.tertiary, colors.background.secondary] : [colors.background.secondary, colors.background.tertiary]}
-              style={[styles.instructionsBox, { bottom: hp(10) + insets.bottom }]}
+              style={[styles.instructionsBox, { bottom: hp(80) }]}
             >
               <View style={styles.instructionRow}>
                 <View style={[styles.instructionIconBox, { backgroundColor: colors.background.border }]}>
