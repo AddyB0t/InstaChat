@@ -19,6 +19,7 @@ import {
   Modal,
   Platform,
   DeviceEventEmitter,
+  ScrollView,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +44,7 @@ import {
 import NotifSwipeCard from '../components/NotifSwipeCard';
 import AddLinkModal from '../components/AddLinkModal';
 import SearchModal from '../components/SearchModal';
+import OnboardingTutorial from '../components/OnboardingTutorial';
 import { wp, hp, fp, ms, screenWidth } from '../utils/responsive';
 import { isVideoPlatform, getPlatformConfig, PlatformType } from '../styles/platformColors';
 
@@ -50,7 +52,7 @@ type ViewMode = 'stacks' | 'grid' | 'custom';
 type ReadFilter = 'all' | 'read' | 'unread';
 
 export default function NotifHomeScreen({ navigation }: any) {
-  const { settings, getThemedColors } = useTheme();
+  const { settings, getThemedColors, updateSettings } = useTheme();
   const systemColorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
@@ -101,6 +103,9 @@ export default function NotifHomeScreen({ navigation }: any) {
   const [showHomeFolderPicker, setShowHomeFolderPicker] = useState(false);
   const [articleForFolder, setArticleForFolder] = useState<Article | null>(null);
   const [homeFolderName, setHomeFolderName] = useState('');
+
+  // Onboarding tutorial state
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const loadArticles = useCallback(async () => {
     try {
@@ -175,6 +180,23 @@ export default function NotifHomeScreen({ navigation }: any) {
 
     return () => subscription.remove();
   }, [loadArticles]);
+
+  // Check if onboarding should be shown
+  useEffect(() => {
+    if (!settings.hasCompletedOnboarding) {
+      // Small delay to let the UI render first
+      const timer = setTimeout(() => {
+        setShowOnboarding(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [settings.hasCompletedOnboarding]);
+
+  // Handle onboarding completion
+  const handleOnboardingComplete = async () => {
+    setShowOnboarding(false);
+    await updateSettings({ hasCompletedOnboarding: true });
+  };
 
   // Get visible cards for stack (3 cards)
   const getVisibleCards = () => {
@@ -1607,6 +1629,14 @@ export default function NotifHomeScreen({ navigation }: any) {
         </View>
       </Modal>
 
+      {/* Onboarding Tutorial */}
+      <OnboardingTutorial
+        visible={showOnboarding}
+        onComplete={handleOnboardingComplete}
+        colors={colors}
+        isDarkMode={isDark}
+      />
+
       {/* Home Page Folder Picker Modal */}
       <Modal
         visible={showHomeFolderPicker}
@@ -1632,26 +1662,28 @@ export default function NotifHomeScreen({ navigation }: any) {
 
             {/* Existing folders list */}
             {folders.length > 0 && (
-              <View style={styles.homeFolderList}>
-                {folders.map((folder) => (
-                  <TouchableOpacity
-                    key={folder.id}
-                    style={[styles.homeFolderItem, { backgroundColor: colors.background.secondary }]}
-                    onPress={() => handleSelectFolderFromHome(folder)}
-                  >
-                    <Icon name="folder" size={20} color="#8B5CF6" />
-                    <View style={styles.homeFolderItemInfo}>
-                      <Text style={[styles.homeFolderItemName, { color: colors.text.primary }]}>
-                        {folder.name}
-                      </Text>
-                      <Text style={[styles.homeFolderItemCount, { color: colors.text.tertiary }]}>
-                        {folder.articleCount} articles
-                      </Text>
-                    </View>
-                    <Icon name="chevron-forward" size={18} color={colors.text.tertiary} />
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView style={styles.homeFolderScrollView} showsVerticalScrollIndicator={true}>
+                <View style={styles.homeFolderList}>
+                  {folders.map((folder) => (
+                    <TouchableOpacity
+                      key={folder.id}
+                      style={[styles.homeFolderItem, { backgroundColor: colors.background.secondary }]}
+                      onPress={() => handleSelectFolderFromHome(folder)}
+                    >
+                      <Icon name="folder" size={20} color="#8B5CF6" />
+                      <View style={styles.homeFolderItemInfo}>
+                        <Text style={[styles.homeFolderItemName, { color: colors.text.primary }]}>
+                          {folder.name}
+                        </Text>
+                        <Text style={[styles.homeFolderItemCount, { color: colors.text.tertiary }]}>
+                          {folder.articleCount} articles
+                        </Text>
+                      </View>
+                      <Icon name="chevron-forward" size={18} color={colors.text.tertiary} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             )}
 
             {/* Create new folder */}
@@ -2743,9 +2775,11 @@ const styles = StyleSheet.create({
     fontSize: fp(14),
     textAlign: 'center',
   },
-  homeFolderList: {
-    maxHeight: hp(200),
+  homeFolderScrollView: {
+    maxHeight: hp(250),
     marginBottom: hp(16),
+  },
+  homeFolderList: {
     gap: hp(8),
   },
   homeFolderItem: {

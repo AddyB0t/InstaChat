@@ -93,6 +93,38 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     );
   };
 
+  const handleResetTutorial = () => {
+    Alert.alert(
+      'Reset Tutorials',
+      'Which tutorial would you like to reset?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Home Screen',
+          onPress: async () => {
+            await updateSettings({ hasCompletedOnboarding: false });
+            Alert.alert('Tutorial Reset', 'The home screen tutorial will show when you return to the home screen.');
+          },
+        },
+        {
+          text: 'Priority Screen',
+          onPress: async () => {
+            await updateSettings({ hasCompletedPriorityTutorial: false });
+            Alert.alert('Tutorial Reset', 'The priority tutorial will show when you visit the Priority screen.');
+          },
+        },
+        {
+          text: 'Reset All',
+          style: 'destructive',
+          onPress: async () => {
+            await updateSettings({ hasCompletedOnboarding: false, hasCompletedPriorityTutorial: false });
+            Alert.alert('Tutorials Reset', 'All tutorials will show again.');
+          },
+        },
+      ]
+    );
+  };
+
   const SettingRow = ({
     icon,
     iconBgColor,
@@ -237,6 +269,18 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             title="Clear All Data"
             subtitle="Delete all saved articles"
             onPress={handleClearData}
+          />
+        </View>
+
+        {/* Help Section */}
+        <SectionHeader title="Help" />
+        <View style={styles.sectionContainer}>
+          <SettingRow
+            icon="school-outline"
+            iconBgColor={colors.accent.primary}
+            title="Reset Tutorial"
+            subtitle="Replay the onboarding walkthrough"
+            onPress={handleResetTutorial}
           />
         </View>
 

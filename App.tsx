@@ -46,6 +46,10 @@ function AppContent() {
   const mainFadeAnim = useRef(new Animated.Value(0)).current;
   const navigationRef = useRef<any>(null);
 
+  // Track URLs being processed to prevent duplicates from race conditions
+  const processingUrlsRef = useRef<Set<string>>(new Set());
+  const recentlyProcessedRef = useRef<Map<string, number>>(new Map());
+
   // Check for app update and clear caches if needed
   useEffect(() => {
     const checkAppVersion = async () => {
@@ -118,6 +122,25 @@ function AppContent() {
 
   // Shared function to handle saving article from URL
   const handleSharedUrl = async (url: string) => {
+    // Normalize URL for comparison
+    const normalizedUrl = url.trim().toLowerCase();
+
+    // Check if this URL is currently being processed (prevents race condition)
+    if (processingUrlsRef.current.has(normalizedUrl)) {
+      console.log('[App] URL already being processed, skipping:', url);
+      return;
+    }
+
+    // Check if this URL was recently processed (within 5 seconds)
+    const lastProcessed = recentlyProcessedRef.current.get(normalizedUrl);
+    if (lastProcessed && Date.now() - lastProcessed < 5000) {
+      console.log('[App] URL was recently processed, skipping:', url);
+      return;
+    }
+
+    // Mark as processing
+    processingUrlsRef.current.add(normalizedUrl);
+
     console.log('[App] Auto-saving shared article:', url);
     setIsSaving(true);
     try {
@@ -127,6 +150,9 @@ function AppContent() {
       // Save immediately
       await saveArticle(article);
       console.log('[App] Article saved instantly:', article.id);
+
+      // Mark as recently processed
+      recentlyProcessedRef.current.set(normalizedUrl, Date.now());
 
       // Show toast and navigate immediately
       ToastAndroid.show('Article saved!', ToastAndroid.SHORT);
@@ -161,6 +187,8 @@ function AppContent() {
 
       // Handle duplicate gracefully - just show toast and navigate
       if (errorMessage.includes('already saved')) {
+        // Also mark as recently processed for duplicates
+        recentlyProcessedRef.current.set(normalizedUrl, Date.now());
         ToastAndroid.show('Already in your library!', ToastAndroid.SHORT);
         DeviceEventEmitter.emit('refreshArticles');
         if (navigationRef.current) {
@@ -169,6 +197,9 @@ function AppContent() {
       } else {
         Alert.alert('Error', `Failed to save article: ${errorMessage}`);
       }
+    } finally {
+      // Always remove from processing set when done
+      processingUrlsRef.current.delete(normalizedUrl);
     }
   };
 

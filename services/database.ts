@@ -76,6 +76,9 @@ export interface AppSettings {
   // Light mode customization
   lightAccent?: 'orange' | 'blue' | 'green';
   lightBackground?: 'pure-white' | 'soft-gray' | 'ice-blue';
+  // Onboarding
+  hasCompletedOnboarding?: boolean;
+  hasCompletedPriorityTutorial?: boolean;
 }
 
 const ARTICLES_KEY = 'instachat_articles';

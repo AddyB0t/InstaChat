@@ -20,6 +20,7 @@ import {
   DeviceEventEmitter,
   Modal,
   TextInput,
+  ScrollView,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,13 +40,14 @@ import {
 } from '../services/database';
 import NotifSwipeCard from '../components/NotifSwipeCard';
 import SearchModal from '../components/SearchModal';
+import PriorityTutorial from '../components/PriorityTutorial';
 import { wp, hp, fp, ms } from '../utils/responsive';
 import { isVideoPlatform, getPlatformConfig, PlatformType } from '../styles/platformColors';
 
 type ViewMode = 'stacks' | 'grid';
 
 export default function PriorityReviewScreen({ navigation }: any) {
-  const { settings, getThemedColors } = useTheme();
+  const { settings, getThemedColors, updateSettings } = useTheme();
   const systemColorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
@@ -77,6 +79,9 @@ export default function PriorityReviewScreen({ navigation }: any) {
   // Save all to folder state
   const [showSaveAllFolderPicker, setShowSaveAllFolderPicker] = useState(false);
   const [saveAllFolderName, setSaveAllFolderName] = useState('');
+
+  // Tutorial state
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const loadPriorityArticles = useCallback(async () => {
     try {
@@ -111,8 +116,18 @@ export default function PriorityReviewScreen({ navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       loadPriorityArticles();
-    }, [loadPriorityArticles])
+      // Check if should show tutorial (first time user)
+      if (!settings.hasCompletedPriorityTutorial) {
+        setShowTutorial(true);
+      }
+    }, [loadPriorityArticles, settings.hasCompletedPriorityTutorial])
   );
+
+  // Handle tutorial completion
+  const handleTutorialComplete = async () => {
+    setShowTutorial(false);
+    await updateSettings({ hasCompletedPriorityTutorial: true });
+  };
 
   // Get visible cards for stack
   const getVisibleCards = () => {
@@ -724,6 +739,14 @@ export default function PriorityReviewScreen({ navigation }: any) {
         <View style={[styles.navBarWrapper, { paddingBottom: hp(20) + insets.bottom }]}>
           {renderViewModeSelector()}
         </View>
+
+        {/* Priority Tutorial (also show on empty state) */}
+        <PriorityTutorial
+          visible={showTutorial}
+          onComplete={handleTutorialComplete}
+          colors={colors}
+          isDarkMode={isDark}
+        />
       </SafeAreaView>
     );
   }
@@ -1006,23 +1029,25 @@ export default function PriorityReviewScreen({ navigation }: any) {
 
             {/* Existing Folders */}
             {folders.length > 0 && (
-              <View style={styles.folderPickerList}>
-                {folders.map((folder) => (
-                  <TouchableOpacity
-                    key={folder.id}
-                    style={[styles.folderPickerItem, { backgroundColor: colors.background.tertiary }]}
-                    onPress={() => handleSelectFolder(folder)}
-                  >
-                    <Icon name="folder" size={fp(20)} color="#8B5CF6" />
-                    <Text style={[styles.folderPickerItemText, { color: colors.text.primary }]}>
-                      {folder.name}
-                    </Text>
-                    <Text style={[styles.folderPickerItemCount, { color: colors.text.tertiary }]}>
-                      {folder.articleCount} articles
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView style={styles.folderPickerScrollView} showsVerticalScrollIndicator={true}>
+                <View style={styles.folderPickerList}>
+                  {folders.map((folder) => (
+                    <TouchableOpacity
+                      key={folder.id}
+                      style={[styles.folderPickerItem, { backgroundColor: colors.background.tertiary }]}
+                      onPress={() => handleSelectFolder(folder)}
+                    >
+                      <Icon name="folder" size={fp(20)} color="#8B5CF6" />
+                      <Text style={[styles.folderPickerItemText, { color: colors.text.primary }]}>
+                        {folder.name}
+                      </Text>
+                      <Text style={[styles.folderPickerItemCount, { color: colors.text.tertiary }]}>
+                        {folder.articleCount} articles
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             )}
 
             {/* Create New Folder */}
@@ -1098,23 +1123,25 @@ export default function PriorityReviewScreen({ navigation }: any) {
 
             {/* Existing Folders */}
             {folders.length > 0 && (
-              <View style={styles.folderPickerList}>
-                {folders.map((folder) => (
-                  <TouchableOpacity
-                    key={folder.id}
-                    style={[styles.folderPickerItem, { backgroundColor: colors.background.tertiary }]}
-                    onPress={() => handleSaveAllToExistingFolder(folder)}
-                  >
-                    <Icon name="folder" size={fp(20)} color="#8B5CF6" />
-                    <Text style={[styles.folderPickerItemText, { color: colors.text.primary }]}>
-                      {folder.name}
-                    </Text>
-                    <Text style={[styles.folderPickerItemCount, { color: colors.text.tertiary }]}>
-                      {folder.articleCount} articles
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView style={styles.folderPickerScrollView} showsVerticalScrollIndicator={true}>
+                <View style={styles.folderPickerList}>
+                  {folders.map((folder) => (
+                    <TouchableOpacity
+                      key={folder.id}
+                      style={[styles.folderPickerItem, { backgroundColor: colors.background.tertiary }]}
+                      onPress={() => handleSaveAllToExistingFolder(folder)}
+                    >
+                      <Icon name="folder" size={fp(20)} color="#8B5CF6" />
+                      <Text style={[styles.folderPickerItemText, { color: colors.text.primary }]}>
+                        {folder.name}
+                      </Text>
+                      <Text style={[styles.folderPickerItemCount, { color: colors.text.tertiary }]}>
+                        {folder.articleCount} articles
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             )}
 
             {/* Create New Folder */}
@@ -1151,6 +1178,14 @@ export default function PriorityReviewScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* Priority Tutorial */}
+      <PriorityTutorial
+        visible={showTutorial}
+        onComplete={handleTutorialComplete}
+        colors={colors}
+        isDarkMode={isDark}
+      />
     </SafeAreaView>
   );
 }
@@ -1599,9 +1634,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   // Folder Picker styles
-  folderPickerList: {
+  folderPickerScrollView: {
+    maxHeight: hp(250),
     marginBottom: hp(16),
-    maxHeight: hp(200),
+  },
+  folderPickerList: {
+    // Container for folder items
   },
   folderPickerItem: {
     flexDirection: 'row',
