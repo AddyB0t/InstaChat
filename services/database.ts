@@ -18,6 +18,7 @@ export interface Article {
   imageUrl?: string;
   folderId?: string;
   tags?: string[];
+  notes?: string;
   isUnread?: boolean;
   isFavorite?: boolean;
   isBookmarked?: boolean;

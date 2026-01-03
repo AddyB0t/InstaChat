@@ -52,6 +52,7 @@ interface NotifSwipeCardProps {
   onMarkAsRead?: (articleId: number) => void;
   onAddToFolder?: (article: Article) => void;
   onAddStackToFolder?: () => void;
+  onNotesUpdated?: () => void;
   isTopCard?: boolean;
   colors: ThemeColors;
   isDarkMode?: boolean;
@@ -72,6 +73,7 @@ export default function NotifSwipeCard({
   onMarkAsRead,
   onAddToFolder,
   onAddStackToFolder,
+  onNotesUpdated,
   isTopCard = false,
   colors,
   isDarkMode = false,
@@ -92,6 +94,11 @@ export default function NotifSwipeCard({
   const [customTagInput, setCustomTagInput] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [modalTranslateY, setModalTranslateY] = useState(0);
+
+  // Notes editing state
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [notesInput, setNotesInput] = useState(article.notes || '');
+  const lastTapRef = useRef<number>(0);
 
   // Pan responder for swipe down to close modal
   const modalPanResponder = useMemo(() => PanResponder.create({
@@ -149,6 +156,33 @@ export default function NotifSwipeCard({
       onTagsSaved?.();
     } catch (error) {
       console.error('[NotifSwipeCard] Error toggling priority:', error);
+    }
+  };
+
+  // Handle double-tap for notes editing
+  const handleDoubleTap = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+      // Double tap detected - open notes modal
+      setNotesInput(article.notes || '');
+      setShowNotesModal(true);
+      lastTapRef.current = 0;
+    } else {
+      lastTapRef.current = now;
+    }
+  };
+
+  // Save notes
+  const handleSaveNotes = async () => {
+    try {
+      await updateArticle(article.id, { notes: notesInput.trim() || undefined });
+      setShowNotesModal(false);
+      onNotesUpdated?.();
+    } catch (error) {
+      console.error('[NotifSwipeCard] Error saving notes:', error);
+      Alert.alert('Error', 'Failed to save notes.');
     }
   };
 
@@ -311,7 +345,15 @@ export default function NotifSwipeCard({
       }
     });
 
-  const composedGesture = panGesture;
+  // Double-tap gesture for notes editing
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .enabled(isTopCard && !isExiting)
+    .onEnd(() => {
+      runOnJS(handleDoubleTap)();
+    });
+
+  const composedGesture = Gesture.Simultaneous(panGesture, doubleTapGesture);
 
   const animatedStyle = useAnimatedStyle(() => {
     const rotate = interpolate(
@@ -742,19 +784,25 @@ export default function NotifSwipeCard({
               </View>
             )}
 
-            {/* Add Reason/Tag */}
+            {/* Add Tagline */}
             {showCustomInput ? (
               <View style={[styles.customInputRow, { borderColor: colors.accent.primary }]}>
-                <TextInput
-                  style={[styles.customTagInput, { color: colors.text.primary }]}
-                  placeholder="Add a reason..."
-                  placeholderTextColor={colors.text.tertiary}
-                  value={customTagInput}
-                  onChangeText={setCustomTagInput}
-                  autoFocus
-                  onSubmitEditing={addCustomTag}
-                  returnKeyType="done"
-                />
+                <View style={styles.taglineInputContainer}>
+                  <TextInput
+                    style={[styles.customTagInput, { color: colors.text.primary }]}
+                    placeholder="Add a tagline..."
+                    placeholderTextColor={colors.text.tertiary}
+                    value={customTagInput}
+                    onChangeText={setCustomTagInput}
+                    autoFocus
+                    onSubmitEditing={addCustomTag}
+                    returnKeyType="done"
+                    maxLength={20}
+                  />
+                  <Text style={[styles.charCounter, { color: colors.text.tertiary }]}>
+                    {customTagInput.length}/20
+                  </Text>
+                </View>
                 <TouchableOpacity
                   style={[styles.addTagButton, { backgroundColor: colors.accent.primary }]}
                   onPress={addCustomTag}
@@ -778,13 +826,14 @@ export default function NotifSwipeCard({
               >
                 <Icon name="add-circle-outline" size={fp(18)} color={colors.accent.primary} />
                 <Text style={[styles.addReasonText, { color: colors.text.primary }]}>
-                  Add custom reason
+                  Add tagline
                 </Text>
               </TouchableOpacity>
             )}
 
-            {/* Custom Card/Custom Stack buttons for Priority view, or Skip/Priority for main view */}
+            {/* Action buttons - different layouts for Priority view vs Home view */}
             {isPriorityView && (onAddToFolder || onAddStackToFolder) ? (
+              // Priority view: Custom Card + Custom Stack
               <View style={styles.modalBottomButtons}>
                 {/* Custom Card - saves only current card */}
                 <TouchableOpacity
@@ -815,33 +864,53 @@ export default function NotifSwipeCard({
                 </TouchableOpacity>
               </View>
             ) : (
-              <View style={styles.modalBottomButtons}>
-                {/* Skip Button */}
-                <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: colors.background.tertiary }]}
-                  onPress={handleSkip}
-                >
-                  <Icon name="play-skip-forward" size={fp(18)} color={colors.text.secondary} />
-                  <Text style={[styles.actionButtonText, { color: colors.text.secondary }]}>Skip</Text>
-                </TouchableOpacity>
+              // Home view: Skip + Priority + Custom Card (if onAddToFolder provided)
+              <View style={styles.modalBottomButtonsColumn}>
+                {/* Top row: Skip and Priority */}
+                <View style={styles.modalBottomButtons}>
+                  {/* Skip Button */}
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: colors.background.tertiary }]}
+                    onPress={handleSkip}
+                  >
+                    <Icon name="play-skip-forward" size={fp(18)} color={colors.text.secondary} />
+                    <Text style={[styles.actionButtonText, { color: colors.text.secondary }]}>Skip</Text>
+                  </TouchableOpacity>
 
-                {/* Priority/Return Button */}
-                <TouchableOpacity
-                  style={[
-                    styles.actionButton,
-                    { backgroundColor: colors.accent.primary }
-                  ]}
-                  onPress={handlePriorityToggle}
-                >
-                  <Icon
-                    name={article.isBookmarked ? 'arrow-undo' : 'heart'}
-                    size={fp(18)}
-                    color="#FFFFFF"
-                  />
-                  <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
-                    {article.isBookmarked ? 'Return to Stack' : 'Save to Priority'}
-                  </Text>
-                </TouchableOpacity>
+                  {/* Priority/Return Button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.actionButton,
+                      { backgroundColor: colors.accent.primary }
+                    ]}
+                    onPress={handlePriorityToggle}
+                  >
+                    <Icon
+                      name={article.isBookmarked ? 'arrow-undo' : 'heart'}
+                      size={fp(18)}
+                      color="#FFFFFF"
+                    />
+                    <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
+                      {article.isBookmarked ? 'Return to Stack' : 'Save to Priority'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Custom Card button - only if onAddToFolder is provided */}
+                {onAddToFolder && (
+                  <TouchableOpacity
+                    style={[styles.actionButtonFull, { backgroundColor: '#8B5CF6' }]}
+                    onPress={() => {
+                      setShowOptionsModal(false);
+                      setShowCustomInput(false);
+                      setCustomTagInput('');
+                      onAddToFolder(article);
+                    }}
+                  >
+                    <Icon name="folder" size={fp(18)} color="#FFFFFF" />
+                    <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Custom Card</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -885,6 +954,65 @@ export default function NotifSwipeCard({
         isDarkMode={isDarkMode}
         colors={colors}
       />
+
+      {/* Notes Editing Modal */}
+      <Modal
+        visible={showNotesModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowNotesModal(false)}
+      >
+        <View style={styles.notesModalOverlay}>
+          <View style={[styles.notesModalContainer, { backgroundColor: colors.background.primary }]}>
+            <View style={styles.notesModalHeader}>
+              <Icon name="document-text" size={28} color={colors.accent.primary} />
+              <Text style={[styles.notesModalTitle, { color: colors.text.primary }]}>
+                Notes
+              </Text>
+              <Text style={[styles.notesModalSubtitle, { color: colors.text.secondary }]}>
+                Add your personal notes about this article
+              </Text>
+            </View>
+
+            <View style={[styles.notesInputContainer, { borderColor: colors.accent.primary }]}>
+              <TextInput
+                style={[styles.notesInput, { color: colors.text.primary }]}
+                placeholder="Write your notes here..."
+                placeholderTextColor={colors.text.tertiary}
+                value={notesInput}
+                onChangeText={setNotesInput}
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.notesModalButtons}>
+              <TouchableOpacity
+                style={[styles.notesModalButton, { backgroundColor: colors.background.secondary }]}
+                onPress={() => {
+                  setShowNotesModal(false);
+                  setNotesInput(article.notes || '');
+                }}
+              >
+                <Text style={[styles.notesModalButtonText, { color: colors.text.secondary }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.notesModalButton, { backgroundColor: colors.accent.primary }]}
+                onPress={handleSaveNotes}
+              >
+                <Icon name="checkmark" size={18} color="#FFFFFF" />
+                <Text style={[styles.notesModalButtonText, { color: '#FFFFFF' }]}>
+                  Save Notes
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -1295,6 +1423,15 @@ const styles = StyleSheet.create({
     fontSize: fp(14),
     paddingVertical: hp(8),
   },
+  taglineInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  charCounter: {
+    fontSize: fp(11),
+    marginLeft: wp(4),
+  },
   addTagButton: {
     width: ms(32),
     height: ms(32),
@@ -1356,6 +1493,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: wp(12),
     marginBottom: hp(16),
+  },
+  modalBottomButtonsColumn: {
+    gap: hp(12),
+    marginBottom: hp(16),
+  },
+  actionButtonFull: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: hp(14),
+    paddingHorizontal: wp(20),
+    borderRadius: ms(16),
+    gap: wp(8),
   },
   skipButton: {
     flexDirection: 'row',
@@ -1475,5 +1625,61 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  // Notes modal styles
+  notesModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: wp(20),
+  },
+  notesModalContainer: {
+    width: '100%',
+    maxWidth: wp(360),
+    borderRadius: ms(24),
+    padding: wp(24),
+  },
+  notesModalHeader: {
+    alignItems: 'center',
+    gap: hp(4),
+    marginBottom: hp(20),
+  },
+  notesModalTitle: {
+    fontSize: fp(22),
+    fontWeight: '700',
+    marginTop: hp(8),
+  },
+  notesModalSubtitle: {
+    fontSize: fp(14),
+    textAlign: 'center',
+  },
+  notesInputContainer: {
+    borderWidth: 2,
+    borderRadius: ms(16),
+    marginBottom: hp(20),
+  },
+  notesInput: {
+    fontSize: fp(16),
+    padding: wp(16),
+    minHeight: hp(150),
+    lineHeight: fp(24),
+  },
+  notesModalButtons: {
+    flexDirection: 'row',
+    gap: wp(12),
+  },
+  notesModalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: wp(14),
+    borderRadius: ms(12),
+    gap: wp(6),
+  },
+  notesModalButtonText: {
+    fontSize: fp(16),
+    fontWeight: '600',
   },
 });

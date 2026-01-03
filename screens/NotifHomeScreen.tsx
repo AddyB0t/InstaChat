@@ -36,6 +36,9 @@ import {
   getAllFolders,
   getArticlesByFolder,
   deleteFolder,
+  updateFolder,
+  createFolder,
+  addArticlesToFolder,
 } from '../services/database';
 import NotifSwipeCard from '../components/NotifSwipeCard';
 import AddLinkModal from '../components/AddLinkModal';
@@ -87,6 +90,17 @@ export default function NotifHomeScreen({ navigation }: any) {
   const [showGridActionMenu, setShowGridActionMenu] = useState(false);
   const [showGridTagInput, setShowGridTagInput] = useState(false);
   const [gridCustomTag, setGridCustomTag] = useState('');
+
+  // Folder options/rename state
+  const [showFolderOptionsModal, setShowFolderOptionsModal] = useState(false);
+  const [folderToEdit, setFolderToEdit] = useState<Folder | null>(null);
+  const [showRenameFolderModal, setShowRenameFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  // Home page folder picker state (for Custom Card from home)
+  const [showHomeFolderPicker, setShowHomeFolderPicker] = useState(false);
+  const [articleForFolder, setArticleForFolder] = useState<Article | null>(null);
+  const [homeFolderName, setHomeFolderName] = useState('');
 
   const loadArticles = useCallback(async () => {
     try {
@@ -369,8 +383,15 @@ export default function NotifHomeScreen({ navigation }: any) {
     setFolderViewMode('stack');
   };
 
+  // Show folder options modal (long press)
+  const handleFolderLongPress = (folder: Folder) => {
+    setFolderToEdit(folder);
+    setShowFolderOptionsModal(true);
+  };
+
   // Delete folder
   const handleDeleteFolder = async (folder: Folder) => {
+    setShowFolderOptionsModal(false);
     Alert.alert(
       'Delete Folder',
       `Are you sure you want to delete "${folder.name}"? Articles will be moved back to the main feed.`,
@@ -385,11 +406,88 @@ export default function NotifHomeScreen({ navigation }: any) {
             if (selectedFolder?.id === folder.id) {
               handleCloseFolder();
             }
+            setFolderToEdit(null);
             loadArticles();
           },
         },
       ]
     );
+  };
+
+  // Open rename folder modal
+  const handleOpenRenameModal = () => {
+    if (folderToEdit) {
+      setNewFolderName(folderToEdit.name);
+      setShowFolderOptionsModal(false);
+      setShowRenameFolderModal(true);
+    }
+  };
+
+  // Rename folder
+  const handleRenameFolder = async () => {
+    if (!folderToEdit || !newFolderName.trim()) return;
+
+    try {
+      await updateFolder(folderToEdit.id, { name: newFolderName.trim() });
+      setFolders(prev => prev.map(f =>
+        f.id === folderToEdit.id ? { ...f, name: newFolderName.trim() } : f
+      ));
+      // Update selectedFolder if it's the one being renamed
+      if (selectedFolder?.id === folderToEdit.id) {
+        setSelectedFolder(prev => prev ? { ...prev, name: newFolderName.trim() } : null);
+      }
+      setShowRenameFolderModal(false);
+      setFolderToEdit(null);
+      setNewFolderName('');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to rename folder.');
+    }
+  };
+
+  // Home page folder picker - open picker for an article
+  const handleAddToFolderFromHome = (article: Article) => {
+    setArticleForFolder(article);
+    setHomeFolderName('');
+    setShowHomeFolderPicker(true);
+  };
+
+  // Select existing folder for article from home
+  const handleSelectFolderFromHome = async (folder: Folder) => {
+    if (!articleForFolder) return;
+
+    try {
+      await addArticlesToFolder(folder.id, [articleForFolder.id.toString()]);
+      // Refresh folders list to update counts
+      const allFolders = await getAllFolders();
+      setFolders(allFolders);
+      DeviceEventEmitter.emit('refreshArticles');
+      setShowHomeFolderPicker(false);
+      setArticleForFolder(null);
+      Alert.alert('Added to Folder', `Article added to "${folder.name}".`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add article to folder.');
+    }
+  };
+
+  // Create new folder for article from home
+  const handleCreateFolderFromHome = async () => {
+    const trimmedName = homeFolderName.trim();
+    if (!trimmedName || !articleForFolder) return;
+
+    try {
+      const folder = await createFolder(trimmedName);
+      await addArticlesToFolder(folder.id, [articleForFolder.id.toString()]);
+      // Refresh folders list
+      const allFolders = await getAllFolders();
+      setFolders(allFolders);
+      DeviceEventEmitter.emit('refreshArticles');
+      setShowHomeFolderPicker(false);
+      setArticleForFolder(null);
+      setHomeFolderName('');
+      Alert.alert('Folder Created', `Article added to new folder "${trimmedName}".`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create folder.');
+    }
   };
 
   // Get filtered folders based on search
@@ -712,6 +810,8 @@ export default function NotifHomeScreen({ navigation }: any) {
                   onDelete={handleDelete}
                   onView={handleViewArticle}
                   onTagsSaved={handleTagsSaved}
+                  onAddToFolder={handleAddToFolderFromHome}
+                  onNotesUpdated={loadArticles}
                   isTopCard={index === 0}
                   colors={colors}
                   isDarkMode={isDark}
@@ -720,34 +820,22 @@ export default function NotifHomeScreen({ navigation }: any) {
               ))}
             </View>
 
-            {/* Swipe Instructions */}
-            <LinearGradient
-              colors={isDark ? [colors.background.tertiary, colors.background.secondary] : [colors.background.secondary, colors.background.tertiary]}
-              style={[styles.instructionsBox, { bottom: hp(80) }]}
-            >
-              <View style={styles.instructionRow}>
-                <View style={[styles.instructionIconBox, { backgroundColor: colors.background.border }]}>
-                  <Icon name="arrow-back" size={14} color={isDark ? '#FFFFFF' : colors.text.primary} />
-                </View>
-                <View style={[styles.instructionEmojiBox, { backgroundColor: colors.accent.bg }]}>
-                  <Icon name="hand-left-outline" size={14} color={colors.accent.primary} />
-                </View>
-                <Text style={[styles.instructionText, { color: colors.text.secondary }]}>
-                  Swipe left to <Text style={[styles.instructionBold, { color: colors.text.primary }]}>Skip</Text>
-                </Text>
+            {/* Notes Preview Box */}
+            <View style={[styles.notesPreviewBox, { backgroundColor: colors.background.secondary }]}>
+              <View style={styles.notesPreviewHeader}>
+                <Icon name="document-text-outline" size={16} color={colors.accent.primary} />
+                <Text style={[styles.notesPreviewLabel, { color: colors.text.tertiary }]}>Notes</Text>
               </View>
-              <View style={styles.instructionRow}>
-                <View style={[styles.instructionIconBox, { backgroundColor: colors.accent.primary }]}>
-                  <Icon name="arrow-forward" size={14} color="#FFFFFF" />
-                </View>
-                <View style={[styles.instructionEmojiBox, { backgroundColor: colors.accent.bg }]}>
-                  <Icon name="heart" size={14} color={colors.accent.primary} />
-                </View>
-                <Text style={[styles.instructionText, { color: colors.text.secondary }]}>
-                  Swipe right for <Text style={[styles.instructionBold, { color: colors.accent.primary }]}>Priority</Text>
+              {visibleCards[0]?.notes ? (
+                <Text style={[styles.notesPreviewText, { color: colors.text.primary }]} numberOfLines={2}>
+                  {visibleCards[0].notes}
                 </Text>
-              </View>
-            </LinearGradient>
+              ) : (
+                <Text style={[styles.notesPreviewPlaceholder, { color: colors.text.tertiary }]}>
+                  Double-tap card to add notes
+                </Text>
+              )}
+            </View>
           </View>
         )
       ) : selectedView === 'grid' ? (
@@ -1170,7 +1258,7 @@ export default function NotifHomeScreen({ navigation }: any) {
                       <TouchableOpacity
                         style={[styles.tagFolderCard, { backgroundColor: colors.background.secondary }]}
                         onPress={() => handleOpenFolder(folder)}
-                        onLongPress={() => handleDeleteFolder(folder)}
+                        onLongPress={() => handleFolderLongPress(folder)}
                         delayLongPress={500}
                       >
                         <View style={[styles.tagFolderIcon, { backgroundColor: colors.accent.primary }]}>
@@ -1394,6 +1482,215 @@ export default function NotifHomeScreen({ navigation }: any) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Folder Options Modal */}
+      <Modal
+        visible={showFolderOptionsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowFolderOptionsModal(false);
+          setFolderToEdit(null);
+        }}
+      >
+        <TouchableOpacity
+          style={styles.folderOptionsOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setShowFolderOptionsModal(false);
+            setFolderToEdit(null);
+          }}
+        >
+          <View style={[styles.folderOptionsContainer, { backgroundColor: colors.background.primary }]}>
+            <View style={styles.folderOptionsHeader}>
+              <Icon name="folder" size={24} color={colors.accent.primary} />
+              <Text style={[styles.folderOptionsTitle, { color: colors.text.primary }]} numberOfLines={1}>
+                {folderToEdit?.name}
+              </Text>
+            </View>
+
+            {/* Rename Option */}
+            <TouchableOpacity
+              style={[styles.folderOptionsItem, { backgroundColor: colors.background.secondary }]}
+              onPress={handleOpenRenameModal}
+            >
+              <Icon name="pencil" size={20} color={colors.accent.primary} />
+              <Text style={[styles.folderOptionsItemText, { color: colors.text.primary }]}>
+                Rename Folder
+              </Text>
+            </TouchableOpacity>
+
+            {/* Delete Option */}
+            <TouchableOpacity
+              style={[styles.folderOptionsItem, { backgroundColor: colors.background.secondary }]}
+              onPress={() => folderToEdit && handleDeleteFolder(folderToEdit)}
+            >
+              <Icon name="trash-outline" size={20} color="#EF4444" />
+              <Text style={[styles.folderOptionsItemText, { color: '#EF4444' }]}>
+                Delete Folder
+              </Text>
+            </TouchableOpacity>
+
+            {/* Cancel */}
+            <TouchableOpacity
+              style={[styles.folderOptionsCancel, { backgroundColor: colors.background.secondary }]}
+              onPress={() => {
+                setShowFolderOptionsModal(false);
+                setFolderToEdit(null);
+              }}
+            >
+              <Text style={[styles.folderOptionsCancelText, { color: colors.text.secondary }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Rename Folder Modal */}
+      <Modal
+        visible={showRenameFolderModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setShowRenameFolderModal(false);
+          setFolderToEdit(null);
+          setNewFolderName('');
+        }}
+      >
+        <View style={styles.renameModalOverlay}>
+          <View style={[styles.renameModalContainer, { backgroundColor: colors.background.primary }]}>
+            <View style={styles.renameModalHeader}>
+              <Icon name="pencil" size={28} color={colors.accent.primary} />
+              <Text style={[styles.renameModalTitle, { color: colors.text.primary }]}>
+                Rename Folder
+              </Text>
+            </View>
+
+            <View style={[styles.renameInputContainer, { borderColor: colors.accent.primary }]}>
+              <TextInput
+                style={[styles.renameInput, { color: colors.text.primary }]}
+                placeholder="Enter new folder name..."
+                placeholderTextColor={colors.text.tertiary}
+                value={newFolderName}
+                onChangeText={setNewFolderName}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleRenameFolder}
+              />
+            </View>
+
+            <View style={styles.renameModalButtons}>
+              <TouchableOpacity
+                style={[styles.renameModalButton, { backgroundColor: colors.background.secondary }]}
+                onPress={() => {
+                  setShowRenameFolderModal(false);
+                  setFolderToEdit(null);
+                  setNewFolderName('');
+                }}
+              >
+                <Text style={[styles.renameModalButtonText, { color: colors.text.secondary }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.renameModalButton, { backgroundColor: colors.accent.primary }]}
+                onPress={handleRenameFolder}
+              >
+                <Icon name="checkmark" size={18} color="#FFFFFF" />
+                <Text style={[styles.renameModalButtonText, { color: '#FFFFFF' }]}>
+                  Save
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Home Page Folder Picker Modal */}
+      <Modal
+        visible={showHomeFolderPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setShowHomeFolderPicker(false);
+          setArticleForFolder(null);
+          setHomeFolderName('');
+        }}
+      >
+        <View style={styles.homeFolderPickerOverlay}>
+          <View style={[styles.homeFolderPickerContainer, { backgroundColor: colors.background.primary }]}>
+            <View style={styles.homeFolderPickerHeader}>
+              <Icon name="folder-open" size={28} color="#8B5CF6" />
+              <Text style={[styles.homeFolderPickerTitle, { color: colors.text.primary }]}>
+                Add to Folder
+              </Text>
+              <Text style={[styles.homeFolderPickerSubtitle, { color: colors.text.secondary }]}>
+                Select a folder or create a new one
+              </Text>
+            </View>
+
+            {/* Existing folders list */}
+            {folders.length > 0 && (
+              <View style={styles.homeFolderList}>
+                {folders.map((folder) => (
+                  <TouchableOpacity
+                    key={folder.id}
+                    style={[styles.homeFolderItem, { backgroundColor: colors.background.secondary }]}
+                    onPress={() => handleSelectFolderFromHome(folder)}
+                  >
+                    <Icon name="folder" size={20} color="#8B5CF6" />
+                    <View style={styles.homeFolderItemInfo}>
+                      <Text style={[styles.homeFolderItemName, { color: colors.text.primary }]}>
+                        {folder.name}
+                      </Text>
+                      <Text style={[styles.homeFolderItemCount, { color: colors.text.tertiary }]}>
+                        {folder.articleCount} articles
+                      </Text>
+                    </View>
+                    <Icon name="chevron-forward" size={18} color={colors.text.tertiary} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Create new folder */}
+            <View style={[styles.homeFolderInputContainer, { borderColor: '#8B5CF6' }]}>
+              <TextInput
+                style={[styles.homeFolderInput, { color: colors.text.primary }]}
+                placeholder="Create new folder..."
+                placeholderTextColor={colors.text.tertiary}
+                value={homeFolderName}
+                onChangeText={setHomeFolderName}
+                returnKeyType="done"
+                onSubmitEditing={handleCreateFolderFromHome}
+              />
+              {homeFolderName.trim() && (
+                <TouchableOpacity
+                  style={[styles.homeFolderCreateButton, { backgroundColor: '#8B5CF6' }]}
+                  onPress={handleCreateFolderFromHome}
+                >
+                  <Icon name="add" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Cancel button */}
+            <TouchableOpacity
+              style={[styles.homeFolderCancelButton, { backgroundColor: colors.background.secondary }]}
+              onPress={() => {
+                setShowHomeFolderPicker(false);
+                setArticleForFolder(null);
+                setHomeFolderName('');
+              }}
+            >
+              <Text style={[styles.homeFolderCancelText, { color: colors.text.secondary }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1561,6 +1858,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
+  },
+  notesPreviewBox: {
+    position: 'absolute',
+    bottom: hp(80),
+    left: wp(20),
+    right: wp(20),
+    padding: wp(14),
+    borderRadius: ms(16),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  notesPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(6),
+    marginBottom: hp(6),
+  },
+  notesPreviewLabel: {
+    fontSize: fp(12),
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  notesPreviewText: {
+    fontSize: fp(14),
+    lineHeight: fp(20),
+  },
+  notesPreviewPlaceholder: {
+    fontSize: fp(14),
+    fontStyle: 'italic',
   },
   instructionRow: {
     flexDirection: 'row',
@@ -2287,5 +2616,183 @@ const styles = StyleSheet.create({
     bottom: '8%',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Folder options modal styles
+  folderOptionsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: wp(20),
+  },
+  folderOptionsContainer: {
+    width: '100%',
+    maxWidth: wp(320),
+    borderRadius: ms(20),
+    padding: wp(20),
+    gap: hp(12),
+  },
+  folderOptionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(12),
+    marginBottom: hp(8),
+  },
+  folderOptionsTitle: {
+    fontSize: fp(18),
+    fontWeight: '700',
+    flex: 1,
+  },
+  folderOptionsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: wp(16),
+    borderRadius: ms(12),
+    gap: wp(12),
+  },
+  folderOptionsItemText: {
+    fontSize: fp(16),
+    fontWeight: '500',
+  },
+  folderOptionsCancel: {
+    padding: wp(16),
+    borderRadius: ms(12),
+    alignItems: 'center',
+    marginTop: hp(4),
+  },
+  folderOptionsCancelText: {
+    fontSize: fp(16),
+    fontWeight: '600',
+  },
+  // Rename folder modal styles
+  renameModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: wp(20),
+  },
+  renameModalContainer: {
+    width: '100%',
+    maxWidth: wp(340),
+    borderRadius: ms(24),
+    padding: wp(24),
+  },
+  renameModalHeader: {
+    alignItems: 'center',
+    gap: hp(8),
+    marginBottom: hp(20),
+  },
+  renameModalTitle: {
+    fontSize: fp(20),
+    fontWeight: '700',
+  },
+  renameInputContainer: {
+    borderWidth: 2,
+    borderRadius: ms(12),
+    paddingHorizontal: wp(16),
+    marginBottom: hp(20),
+  },
+  renameInput: {
+    fontSize: fp(16),
+    paddingVertical: hp(14),
+  },
+  renameModalButtons: {
+    flexDirection: 'row',
+    gap: wp(12),
+  },
+  renameModalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: wp(14),
+    borderRadius: ms(12),
+    gap: wp(6),
+  },
+  renameModalButtonText: {
+    fontSize: fp(16),
+    fontWeight: '600',
+  },
+  // Home folder picker modal styles
+  homeFolderPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: wp(20),
+  },
+  homeFolderPickerContainer: {
+    width: '100%',
+    maxWidth: wp(360),
+    maxHeight: '80%',
+    borderRadius: ms(24),
+    padding: wp(24),
+  },
+  homeFolderPickerHeader: {
+    alignItems: 'center',
+    gap: hp(4),
+    marginBottom: hp(20),
+  },
+  homeFolderPickerTitle: {
+    fontSize: fp(20),
+    fontWeight: '700',
+    marginTop: hp(8),
+  },
+  homeFolderPickerSubtitle: {
+    fontSize: fp(14),
+    textAlign: 'center',
+  },
+  homeFolderList: {
+    maxHeight: hp(200),
+    marginBottom: hp(16),
+    gap: hp(8),
+  },
+  homeFolderItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: wp(14),
+    borderRadius: ms(12),
+    gap: wp(12),
+  },
+  homeFolderItemInfo: {
+    flex: 1,
+  },
+  homeFolderItemName: {
+    fontSize: fp(15),
+    fontWeight: '600',
+  },
+  homeFolderItemCount: {
+    fontSize: fp(12),
+    marginTop: hp(2),
+  },
+  homeFolderInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderRadius: ms(12),
+    paddingHorizontal: wp(14),
+    marginBottom: hp(16),
+  },
+  homeFolderInput: {
+    flex: 1,
+    fontSize: fp(15),
+    paddingVertical: hp(14),
+  },
+  homeFolderCreateButton: {
+    width: ms(32),
+    height: ms(32),
+    borderRadius: ms(16),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  homeFolderCancelButton: {
+    padding: wp(14),
+    borderRadius: ms(12),
+    alignItems: 'center',
+  },
+  homeFolderCancelText: {
+    fontSize: fp(16),
+    fontWeight: '600',
   },
 });
