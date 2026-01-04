@@ -389,8 +389,12 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
 
       // For Reddit: Check if microlink returned a generic/bad title, use oEmbed as fallback
       if (platform === 'reddit') {
+        // Check if title looks like a Reddit post ID (short alphanumeric string)
+        const looksLikePostId = metadata.title && /^[a-zA-Z0-9]{6,15}$/.test(metadata.title.trim());
+
         const isGenericTitle = !metadata.title ||
           metadata.title.trim() === '' ||
+          looksLikePostId ||
           metadata.title.toLowerCase().includes('reddit') && metadata.title.length < 20 ||
           metadata.title.toLowerCase().includes('login') ||
           metadata.title.toLowerCase().includes('sign in');
@@ -398,13 +402,24 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
         if (isGenericTitle) {
           console.log('[ArticleExtractor] microlink returned generic Reddit title, trying oEmbed...');
           const redditMetadata = await fetchRedditMetadata(url);
-          if (redditMetadata.title) {
+          if (redditMetadata.title && !/^[a-zA-Z0-9]{6,15}$/.test(redditMetadata.title.trim())) {
             metadata = {
               ...metadata,
               title: redditMetadata.title,
               author: redditMetadata.author || metadata.author,
             };
             console.log('[ArticleExtractor] Using Reddit oEmbed metadata:', metadata.title);
+          } else {
+            // Try to extract subreddit from URL for fallback
+            const subredditMatch = url.match(/reddit\.com\/r\/([^\/]+)/);
+            const subreddit = subredditMatch ? subredditMatch[1] : null;
+            if (subreddit) {
+              metadata.title = `Reddit Post from r/${subreddit}`;
+              console.log('[ArticleExtractor] Using subreddit fallback title:', metadata.title);
+            } else {
+              metadata.title = 'Reddit Post';
+              console.log('[ArticleExtractor] Using generic Reddit fallback title');
+            }
           }
         }
       }

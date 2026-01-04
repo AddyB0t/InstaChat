@@ -19,6 +19,7 @@ import {
 interface ThemeContextType {
   settings: AppSettings;
   updateTheme: (key: keyof AppSettings, value: any) => Promise<void>;
+  updateSettings: (updates: Partial<AppSettings>) => Promise<AppSettings>;
   isLoading: boolean;
   // Helper functions to get current values
   getColors: () => any;
@@ -73,6 +74,18 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  // Update multiple settings at once
+  const updateSettingsWrapper = async (updates: Partial<AppSettings>): Promise<AppSettings> => {
+    try {
+      const updated = await updateSettings(updates);
+      setSettings(updated);
+      return updated;
+    } catch (error) {
+      console.error('[ThemeContext] Error updating settings:', error);
+      throw error;
+    }
+  };
+
   const getColors = () => {
     // Return colors based on current theme setting
     if (settings.theme === 'light') {
@@ -105,7 +118,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   return (
-    <ThemeContext.Provider value={{ settings, updateTheme, isLoading, getColors, getFontSize, getThemedColors }}>
+    <ThemeContext.Provider value={{ settings, updateTheme, updateSettings: updateSettingsWrapper, isLoading, getColors, getFontSize, getThemedColors }}>
       {children}
     </ThemeContext.Provider>
   );

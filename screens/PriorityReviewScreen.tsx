@@ -24,7 +24,6 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -486,14 +485,6 @@ export default function PriorityReviewScreen({ navigation }: any) {
       const articleIds = priorityArticles.map(a => a.id.toString());
       await addArticlesToFolder(folder.id, articleIds);
 
-      // Unbookmark all articles
-      for (const article of priorityArticles) {
-        await updateArticle(article.id, { isBookmarked: false });
-      }
-
-      // Clear priority list
-      setPriorityArticles([]);
-
       // Refresh folders list
       const allFolders = await getAllFolders();
       setFolders(allFolders);
@@ -506,8 +497,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
 
       Alert.alert(
         'Saved to Folder',
-        `${articleIds.length} articles saved to "${folder.name}".`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        `${articleIds.length} articles added to "${folder.name}". Cards remain in Priority.`
       );
     } catch (error) {
       console.error('[PriorityReviewScreen] Error saving all to folder:', error);
@@ -524,14 +514,6 @@ export default function PriorityReviewScreen({ navigation }: any) {
       const articleIds = priorityArticles.map(a => a.id.toString());
       await addArticlesToFolder(folder.id, articleIds);
 
-      // Unbookmark all articles
-      for (const article of priorityArticles) {
-        await updateArticle(article.id, { isBookmarked: false });
-      }
-
-      // Clear priority list
-      setPriorityArticles([]);
-
       // Refresh folders list
       const allFolders = await getAllFolders();
       setFolders(allFolders);
@@ -544,8 +526,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
 
       Alert.alert(
         'Folder Created',
-        `${articleIds.length} articles saved to new folder "${trimmedName}".`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        `${articleIds.length} articles added to new folder "${trimmedName}". Cards remain in Priority.`
       );
     } catch (error) {
       console.error('[PriorityReviewScreen] Error creating folder for all:', error);
@@ -809,6 +790,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
                 onTagsSaved={refreshPriorityArticles}
                 onAddToFolder={handleAddToFolderPress}
                 onAddStackToFolder={handleSaveAllToFolderPress}
+                onNotesUpdated={refreshPriorityArticles}
                 isTopCard={index === 0}
                 colors={colors}
                 isDarkMode={isDark}
@@ -818,6 +800,23 @@ export default function PriorityReviewScreen({ navigation }: any) {
                 isPriorityView={true}
               />
             ))}
+          </View>
+
+          {/* Description Preview Box */}
+          <View style={[styles.notesPreviewBox, { backgroundColor: colors.background.secondary }]}>
+            <View style={styles.notesPreviewHeader}>
+              <Icon name="document-text-outline" size={16} color={colors.accent.primary} />
+              <Text style={[styles.notesPreviewLabel, { color: colors.text.tertiary }]}>Description</Text>
+            </View>
+            {visibleCards[0]?.notes ? (
+              <Text style={[styles.notesPreviewText, { color: colors.text.primary }]} numberOfLines={2}>
+                {visibleCards[0].notes}
+              </Text>
+            ) : (
+              <Text style={[styles.notesPreviewPlaceholder, { color: colors.text.tertiary }]}>
+                Tap flip button to add description
+              </Text>
+            )}
           </View>
         </View>
       ) : (
@@ -829,37 +828,6 @@ export default function PriorityReviewScreen({ navigation }: any) {
           contentContainerStyle={styles.gridList}
           showsVerticalScrollIndicator={false}
         />
-      )}
-
-      {/* Swipe instructions (stacks view only) */}
-      {selectedView === 'stacks' && priorityArticles.length > 0 && (
-        <LinearGradient
-          colors={isDark ? [colors.background.tertiary, colors.background.secondary] : [colors.background.secondary, colors.background.tertiary]}
-          style={styles.instructionsBox}
-        >
-          <View style={styles.instructionRow}>
-            <View style={[styles.instructionIconBox, { backgroundColor: colors.background.border }]}>
-              <Icon name="arrow-back" size={14} color={isDark ? '#FFFFFF' : colors.text.primary} />
-            </View>
-            <View style={[styles.instructionEmojiBox, { backgroundColor: colors.accent.bg }]}>
-              <Icon name="hand-left-outline" size={14} color={colors.accent.primary} />
-            </View>
-            <Text style={[styles.instructionText, { color: colors.text.secondary }]}>
-              Swipe left to <Text style={[styles.instructionBold, { color: colors.text.primary }]}>Skip</Text>
-            </Text>
-          </View>
-          <View style={styles.instructionRow}>
-            <View style={[styles.instructionIconBox, { backgroundColor: colors.accent.primary }]}>
-              <Icon name="arrow-forward" size={14} color="#FFFFFF" />
-            </View>
-            <View style={[styles.instructionEmojiBox, { backgroundColor: colors.accent.bg }]}>
-              <Icon name="open-outline" size={14} color={colors.accent.primary} />
-            </View>
-            <Text style={[styles.instructionText, { color: colors.text.secondary }]}>
-              Swipe right to <Text style={[styles.instructionBold, { color: colors.accent.primary }]}>Open</Text>
-            </Text>
-          </View>
-        </LinearGradient>
       )}
 
       {/* View mode selector */}
@@ -1667,5 +1635,38 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: wp(8),
     top: hp(7),
+  },
+  // Notes preview styles
+  notesPreviewBox: {
+    position: 'absolute',
+    bottom: hp(80),
+    left: wp(20),
+    right: wp(20),
+    borderRadius: ms(12),
+    padding: wp(14),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  notesPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(6),
+    marginBottom: hp(6),
+  },
+  notesPreviewLabel: {
+    fontSize: fp(12),
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  notesPreviewText: {
+    fontSize: fp(14),
+    lineHeight: fp(20),
+  },
+  notesPreviewPlaceholder: {
+    fontSize: fp(14),
+    fontStyle: 'italic',
   },
 });

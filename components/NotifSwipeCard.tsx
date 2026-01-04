@@ -3,7 +3,7 @@
  * Tinder-like swipe card with glow effect and stacked positioning
  */
 
-import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,6 @@ import {
   Modal,
   Linking,
   Image,
-  TouchableWithoutFeedback,
   TextInput,
   PanResponder,
   Alert,
@@ -27,6 +26,7 @@ import Animated, {
   interpolate,
   runOnJS,
   Easing,
+  Extrapolation,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, Pressable } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -96,9 +96,13 @@ export default function NotifSwipeCard({
   const [modalTranslateY, setModalTranslateY] = useState(0);
 
   // Notes editing state
-  const [showNotesModal, setShowNotesModal] = useState(false);
   const [notesInput, setNotesInput] = useState(article.notes || '');
-  const lastTapRef = useRef<number>(0);
+
+  // Flip card animation state
+  const rotateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const lastFlipTime = useRef(0);
 
   // Pan responder for swipe down to close modal
   const modalPanResponder = useMemo(() => PanResponder.create({
@@ -159,30 +163,49 @@ export default function NotifSwipeCard({
     }
   };
 
-  // Handle double-tap for notes editing
-  const handleDoubleTap = () => {
+  // Handle flip card for notes
+  const handleFlip = () => {
+    console.log('[NotifSwipeCard] handleFlip called, current isFlipped:', isFlipped);
+    // Prevent rapid tapping with 400ms cooldown
     const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
+    if (now - lastFlipTime.current < 400) {
+      console.log('[NotifSwipeCard] Flip blocked by cooldown');
+      return;
+    }
+    lastFlipTime.current = now;
 
-    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-      // Double tap detected - open notes modal
+    const newFlipped = !isFlipped;
+    console.log('[NotifSwipeCard] Flipping to:', newFlipped);
+    setIsFlipped(newFlipped);
+    rotateY.value = withSpring(newFlipped ? 180 : 0, {
+      damping: 15,
+      stiffness: 100,
+    });
+    // Reset notes input when flipping to back
+    if (newFlipped) {
       setNotesInput(article.notes || '');
-      setShowNotesModal(true);
-      lastTapRef.current = 0;
-    } else {
-      lastTapRef.current = now;
     }
   };
 
-  // Save notes
+  // Save notes and flip back
   const handleSaveNotes = async () => {
+    console.log('[NotifSwipeCard] handleSaveNotes called, notesInput:', notesInput);
     try {
-      await updateArticle(article.id, { notes: notesInput.trim() || undefined });
-      setShowNotesModal(false);
-      onNotesUpdated?.();
+      const trimmedNotes = notesInput.trim();
+      console.log('[NotifSwipeCard] Saving notes:', trimmedNotes, 'for article:', article.id);
+      await updateArticle(article.id, { notes: trimmedNotes || undefined });
+      console.log('[NotifSwipeCard] Notes saved successfully');
+      // Flip back to front
+      setIsFlipped(false);
+      rotateY.value = withSpring(0, { damping: 15, stiffness: 100 });
+      // Call callback to refresh the view
+      if (onNotesUpdated) {
+        console.log('[NotifSwipeCard] Calling onNotesUpdated callback');
+        onNotesUpdated();
+      }
     } catch (error) {
       console.error('[NotifSwipeCard] Error saving notes:', error);
-      Alert.alert('Error', 'Failed to save notes.');
+      Alert.alert('Error', 'Failed to save description.');
     }
   };
 
@@ -228,6 +251,10 @@ export default function NotifSwipeCard({
       translateY.value = 0;
       cardScale.value = 1;
       cardOpacity.value = 1;
+      // Reset flip state
+      setIsFlipped(false);
+      rotateY.value = 0;
+      scale.value = 1;
     }
   }, [stackIndex]);
 
@@ -302,64 +329,60 @@ export default function NotifSwipeCard({
 
   const panGesture = Gesture.Pan()
     .enabled(isTopCard && !isExiting)
-    .activeOffsetX([-10, 10]) // Only activate pan after 10px horizontal movement
+    .onStart(() => {
+      // Scale up slightly on drag start
+      scale.value = withSpring(1.02, { damping: 15 });
+    })
     .onUpdate((e) => {
       translateX.value = e.translationX;
-      translateY.value = e.translationY * 0.2;
+      translateY.value = e.translationY * 0.3;
     })
     .onEnd((e) => {
       const shouldSwipeLeft = e.translationX < -SWIPE_THRESHOLD;
       const shouldSwipeRight = e.translationX > SWIPE_THRESHOLD;
 
       if (shouldSwipeLeft) {
-        translateX.value = withTiming(-screenWidth * 1.5, {
-          duration: 300,
-          easing: Easing.out(Easing.cubic)
-        }, (finished) => {
-          if (finished) {
-            runOnJS(handleSwipeComplete)('left');
-          }
-        });
+        translateX.value = withTiming(-screenWidth * 1.5, { duration: 300 });
         cardOpacity.value = withTiming(0, { duration: 250 });
+        runOnJS(handleSwipeComplete)('left');
       } else if (shouldSwipeRight) {
         if (keepCardOnRightSwipe) {
           // Call onSwipeRight immediately (don't wait for animation)
           runOnJS(onSwipeRight)(article.id);
           // Then animate card back to center
-          translateX.value = withSpring(0, { damping: 15, stiffness: 150 });
-          translateY.value = withSpring(0, { damping: 15, stiffness: 150 });
+          translateX.value = withSpring(0, { damping: 15 });
+          translateY.value = withSpring(0, { damping: 15 });
         } else {
-          translateX.value = withTiming(screenWidth * 1.5, {
-            duration: 300,
-            easing: Easing.out(Easing.cubic)
-          }, (finished) => {
-            if (finished) {
-              runOnJS(handleSwipeComplete)('right');
-            }
-          });
+          translateX.value = withTiming(screenWidth * 1.5, { duration: 300 });
           cardOpacity.value = withTiming(0, { duration: 250 });
+          runOnJS(handleSwipeComplete)('right');
         }
       } else {
-        translateX.value = withSpring(0, { damping: 15, stiffness: 150 });
-        translateY.value = withSpring(0, { damping: 15, stiffness: 150 });
+        // Reset with spring animation
+        translateX.value = withSpring(0, { damping: 15 });
+        translateY.value = withSpring(0, { damping: 15 });
+      }
+      // Scale back down
+      scale.value = withSpring(1, { damping: 15 });
+    });
+
+  const longPressGesture = Gesture.LongPress()
+    .enabled(isTopCard && !isExiting && !isFlipped)
+    .minDuration(400)
+    .onEnd((e, success) => {
+      if (success) {
+        runOnJS(handleLongPress)();
       }
     });
 
-  // Double-tap gesture for notes editing
-  const doubleTapGesture = Gesture.Tap()
-    .numberOfTaps(2)
-    .enabled(isTopCard && !isExiting)
-    .onEnd(() => {
-      runOnJS(handleDoubleTap)();
-    });
-
-  const composedGesture = Gesture.Simultaneous(panGesture, doubleTapGesture);
+  const composedGesture = Gesture.Race(panGesture, longPressGesture);
 
   const animatedStyle = useAnimatedStyle(() => {
     const rotate = interpolate(
       translateX.value,
-      [-screenWidth / 2, 0, screenWidth / 2],
-      [-10, 0, 10]
+      [-screenWidth, 0, screenWidth],
+      [-15, 0, 15],
+      Extrapolation.CLAMP
     );
 
     // Stack positioning
@@ -379,7 +402,7 @@ export default function NotifSwipeCard({
     const yOffset = stackIndex === 0 ? 0 : -25;
 
     // Apply entry/exit animation for top card
-    const finalScale = stackIndex === 0 ? cardScale.value : baseScale;
+    const finalScale = stackIndex === 0 ? cardScale.value * scale.value : baseScale;
     const finalOpacity = stackIndex === 0 ? cardOpacity.value : baseOpacity;
 
     return {
@@ -393,6 +416,43 @@ export default function NotifSwipeCard({
       zIndex: 10 - stackIndex,
     };
   });
+
+  // Flip animation using scaleX for reliable Android support
+  // Card "flips" by scaling to 0 on X axis, then back to 1
+  const flipAnimatedStyle = useAnimatedStyle(() => {
+    // Scale from 1 -> 0 -> 1 as rotateY goes 0 -> 90 -> 180
+    const scaleX = interpolate(
+      rotateY.value,
+      [0, 90, 180],
+      [1, 0, 1],
+      Extrapolation.CLAMP
+    );
+    return {
+      transform: [{ scaleX }],
+    };
+  });
+
+  // Front side - visible when rotateY < 90
+  const frontAnimatedStyle = useAnimatedStyle(() => {
+    const isVisible = rotateY.value < 90;
+    return {
+      opacity: isVisible ? 1 : 0,
+      zIndex: isVisible ? 2 : 1,
+    };
+  });
+
+  // Back side - visible when rotateY >= 90
+  const backAnimatedStyle = useAnimatedStyle(() => {
+    const isVisible = rotateY.value >= 90;
+    return {
+      opacity: isVisible ? 1 : 0,
+      zIndex: isVisible ? 2 : 1,
+    };
+  });
+
+  // Determine pointer events based on flip state
+  const frontPointerEvents = isFlipped ? 'none' : 'auto';
+  const backPointerEvents = isFlipped ? 'auto' : 'none';
 
   const leftOverlayStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
@@ -459,21 +519,20 @@ export default function NotifSwipeCard({
             </>
           )}
 
-          {/* Card content with long press */}
-          <TouchableWithoutFeedback
-            onLongPress={isTopCard ? handleLongPress : undefined}
-            delayLongPress={400}
-          >
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: colors.background.primary,
-                borderColor: stackIndex === 0 ? colors.accent.primary : colors.accent.light,
-                borderWidth: stackIndex === 0 ? 2 : 1,
-              },
-            ]}
-          >
+          {/* Flip Container - applies scaleX animation */}
+          <Animated.View style={[styles.flipContainer, flipAnimatedStyle]}>
+          {/* Front Side */}
+          <Animated.View style={[styles.cardFace, frontAnimatedStyle]} pointerEvents={frontPointerEvents}>
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: colors.background.primary,
+                  borderColor: stackIndex === 0 ? colors.accent.primary : colors.accent.light,
+                  borderWidth: stackIndex === 0 ? 2 : 1,
+                },
+              ]}
+            >
             {/* Swipe overlays - only on top card */}
             {stackIndex === 0 && (
               <>
@@ -714,8 +773,111 @@ export default function NotifSwipeCard({
                 )}
               </>
             )}
+
+            {/* Notes Preview - show if notes exist */}
+            {article.notes && (
+              <View style={[styles.notesPreview, { backgroundColor: colors.background.secondary }]}>
+                <Icon name="document-text-outline" size={fp(14)} color={colors.accent.primary} />
+                <Text
+                  style={[styles.notesPreviewText, { color: colors.text.secondary }]}
+                  numberOfLines={2}
+                >
+                  {article.notes}
+                </Text>
+              </View>
+            )}
           </View>
-          </TouchableWithoutFeedback>
+
+            {/* Flip Button - Icon only with theme color */}
+            {stackIndex === 0 && (
+              <Pressable
+                style={[
+                  styles.flipIconButton,
+                  { backgroundColor: colors.accent.primary + '20' },
+                ]}
+                onPress={handleFlip}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon
+                  name="sync-outline"
+                  size={fp(18)}
+                  color={colors.accent.primary}
+                />
+              </Pressable>
+            )}
+          </Animated.View>
+
+          {/* Back Side - Notes Input */}
+          <Animated.View style={[styles.cardFace, styles.cardBack, backAnimatedStyle]} pointerEvents={backPointerEvents}>
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: colors.background.primary,
+                  borderColor: colors.accent.primary,
+                  borderWidth: 2,
+                },
+              ]}
+            >
+              {/* Back Header */}
+              <View style={styles.backHeader}>
+                <View style={styles.backHeaderLeft}>
+                  <Icon name="document-text" size={fp(24)} color={colors.accent.primary} />
+                  <Text style={[styles.backTitle, { color: colors.text.primary }]}>
+                    Add Description
+                  </Text>
+                </View>
+              </View>
+
+              {/* Article Title Reference */}
+              <Text
+                style={[styles.backArticleTitle, { color: colors.text.tertiary }]}
+                numberOfLines={2}
+              >
+                {article.title}
+              </Text>
+
+              {/* Notes Input */}
+              <View style={[styles.notesInputContainer, { borderColor: colors.accent.light }]}>
+                <TextInput
+                  style={[styles.notesTextInput, { color: colors.text.primary }]}
+                  placeholder="Write your description here..."
+                  placeholderTextColor={colors.text.tertiary}
+                  value={notesInput}
+                  onChangeText={setNotesInput}
+                  multiline
+                  numberOfLines={6}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              {/* Save Button */}
+              <Pressable
+                style={[styles.saveNotesButton, { backgroundColor: colors.accent.primary }]}
+                onPress={handleSaveNotes}
+              >
+                <Icon name="checkmark" size={fp(18)} color="#FFFFFF" />
+                <Text style={styles.saveNotesButtonText}>Save Description</Text>
+              </Pressable>
+            </View>
+
+            {/* Flip Button - Bottom right */}
+            <Pressable
+              style={[
+                styles.flipIconButton,
+                { backgroundColor: colors.accent.primary + '20' },
+              ]}
+              onPress={handleFlip}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon
+                name="sync-outline"
+                size={fp(18)}
+                color={colors.accent.primary}
+              />
+            </Pressable>
+          </Animated.View>
+          </Animated.View>
         </Animated.View>
       </GestureDetector>
 
@@ -955,64 +1117,6 @@ export default function NotifSwipeCard({
         colors={colors}
       />
 
-      {/* Notes Editing Modal */}
-      <Modal
-        visible={showNotesModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowNotesModal(false)}
-      >
-        <View style={styles.notesModalOverlay}>
-          <View style={[styles.notesModalContainer, { backgroundColor: colors.background.primary }]}>
-            <View style={styles.notesModalHeader}>
-              <Icon name="document-text" size={28} color={colors.accent.primary} />
-              <Text style={[styles.notesModalTitle, { color: colors.text.primary }]}>
-                Notes
-              </Text>
-              <Text style={[styles.notesModalSubtitle, { color: colors.text.secondary }]}>
-                Add your personal notes about this article
-              </Text>
-            </View>
-
-            <View style={[styles.notesInputContainer, { borderColor: colors.accent.primary }]}>
-              <TextInput
-                style={[styles.notesInput, { color: colors.text.primary }]}
-                placeholder="Write your notes here..."
-                placeholderTextColor={colors.text.tertiary}
-                value={notesInput}
-                onChangeText={setNotesInput}
-                multiline
-                numberOfLines={6}
-                textAlignVertical="top"
-                autoFocus
-              />
-            </View>
-
-            <View style={styles.notesModalButtons}>
-              <TouchableOpacity
-                style={[styles.notesModalButton, { backgroundColor: colors.background.secondary }]}
-                onPress={() => {
-                  setShowNotesModal(false);
-                  setNotesInput(article.notes || '');
-                }}
-              >
-                <Text style={[styles.notesModalButtonText, { color: colors.text.secondary }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.notesModalButton, { backgroundColor: colors.accent.primary }]}
-                onPress={handleSaveNotes}
-              >
-                <Icon name="checkmark" size={18} color="#FFFFFF" />
-                <Text style={[styles.notesModalButtonText, { color: '#FFFFFF' }]}>
-                  Save Notes
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 }
@@ -1022,6 +1126,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
+  },
+  flipContainer: {
+    width: '100%',
+    height: '100%',
   },
   glowOuter: {
     position: 'absolute',
@@ -1656,8 +1764,9 @@ const styles = StyleSheet.create({
   },
   notesInputContainer: {
     borderWidth: 2,
-    borderRadius: ms(16),
-    marginBottom: hp(20),
+    borderRadius: ms(12),
+    marginBottom: hp(16),
+    marginTop: hp(8),
   },
   notesInput: {
     fontSize: fp(16),
@@ -1680,6 +1789,92 @@ const styles = StyleSheet.create({
   },
   notesModalButtonText: {
     fontSize: fp(16),
+    fontWeight: '600',
+  },
+  // Flip card styles
+  cardFace: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  cardBack: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  flipIconButton: {
+    position: 'absolute',
+    bottom: wp(12),
+    right: wp(12),
+    width: ms(36),
+    height: ms(36),
+    borderRadius: ms(18),
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  notesPreview: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: wp(10),
+    borderRadius: ms(10),
+    marginTop: hp(8),
+    gap: wp(8),
+  },
+  notesPreviewText: {
+    flex: 1,
+    fontSize: fp(11),
+    lineHeight: fp(15),
+  },
+  backHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: hp(12),
+  },
+  backHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(8),
+  },
+  backTitle: {
+    fontSize: fp(18),
+    fontWeight: '700',
+  },
+  flipBackButton: {
+    width: ms(36),
+    height: ms(36),
+    borderRadius: ms(18),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backArticleTitle: {
+    fontSize: fp(12),
+    lineHeight: fp(16),
+    marginBottom: hp(12),
+  },
+  notesTextInput: {
+    fontSize: fp(14),
+    lineHeight: fp(20),
+    textAlignVertical: 'top',
+    paddingHorizontal: wp(10),
+    paddingTop: wp(8),
+    paddingBottom: wp(8),
+    minHeight: hp(60),
+    maxHeight: hp(80),
+  },
+  saveNotesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: hp(12),
+    borderRadius: ms(12),
+    gap: wp(6),
+    marginTop: hp(12),
+  },
+  saveNotesButtonText: {
+    color: '#FFFFFF',
+    fontSize: fp(15),
     fontWeight: '600',
   },
 });

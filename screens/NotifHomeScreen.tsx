@@ -842,11 +842,11 @@ export default function NotifHomeScreen({ navigation }: any) {
               ))}
             </View>
 
-            {/* Notes Preview Box */}
+            {/* Description Preview Box */}
             <View style={[styles.notesPreviewBox, { backgroundColor: colors.background.secondary }]}>
               <View style={styles.notesPreviewHeader}>
                 <Icon name="document-text-outline" size={16} color={colors.accent.primary} />
-                <Text style={[styles.notesPreviewLabel, { color: colors.text.tertiary }]}>Notes</Text>
+                <Text style={[styles.notesPreviewLabel, { color: colors.text.tertiary }]}>Description</Text>
               </View>
               {visibleCards[0]?.notes ? (
                 <Text style={[styles.notesPreviewText, { color: colors.text.primary }]} numberOfLines={2}>
@@ -854,7 +854,7 @@ export default function NotifHomeScreen({ navigation }: any) {
                 </Text>
               ) : (
                 <Text style={[styles.notesPreviewPlaceholder, { color: colors.text.tertiary }]}>
-                  Double-tap card to add notes
+                  Tap flip button to add description
                 </Text>
               )}
             </View>
