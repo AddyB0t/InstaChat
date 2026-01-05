@@ -420,14 +420,17 @@ export default function NotifSwipeCard({
   // Card "flips" by scaling to 0 on X axis, then back to 1
   const flipAnimatedStyle = useAnimatedStyle(() => {
     // Scale from 1 -> 0 -> 1 as rotateY goes 0 -> 90 -> 180
-    const scaleX = interpolate(
+    const scaleXValue = interpolate(
       rotateY.value,
       [0, 90, 180],
-      [1, 0, 1],
+      [1, 0.001, 1],
       Extrapolation.CLAMP
     );
     return {
-      transform: [{ scaleX }],
+      transform: [
+        { perspective: 1000 },
+        { scaleX: scaleXValue },
+      ],
     };
   });
 
