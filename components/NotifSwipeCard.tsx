@@ -166,10 +166,10 @@ export default function NotifSwipeCard({
   // Handle flip card for notes
   const handleFlip = () => {
     console.log('[NotifSwipeCard] handleFlip called, current isFlipped:', isFlipped);
-    // Prevent rapid tapping with 400ms cooldown
+    // Prevent rapid tapping with 1500ms cooldown (prevents ghost double-triggers)
     const now = Date.now();
-    if (now - lastFlipTime.current < 400) {
-      console.log('[NotifSwipeCard] Flip blocked by cooldown');
+    if (now - lastFlipTime.current < 1500) {
+      console.log('[NotifSwipeCard] Flip blocked by cooldown, time since last:', now - lastFlipTime.current);
       return;
     }
     lastFlipTime.current = now;
@@ -177,9 +177,8 @@ export default function NotifSwipeCard({
     const newFlipped = !isFlipped;
     console.log('[NotifSwipeCard] Flipping to:', newFlipped);
     setIsFlipped(newFlipped);
-    rotateY.value = withSpring(newFlipped ? 180 : 0, {
-      damping: 15,
-      stiffness: 100,
+    rotateY.value = withTiming(newFlipped ? 180 : 0, {
+      duration: 450,
     });
     // Reset notes input when flipping to back
     if (newFlipped) {
@@ -774,29 +773,16 @@ export default function NotifSwipeCard({
               </>
             )}
 
-            {/* Notes Preview - show if notes exist */}
-            {article.notes && (
-              <View style={[styles.notesPreview, { backgroundColor: colors.background.secondary }]}>
-                <Icon name="document-text-outline" size={fp(14)} color={colors.accent.primary} />
-                <Text
-                  style={[styles.notesPreviewText, { color: colors.text.secondary }]}
-                  numberOfLines={2}
-                >
-                  {article.notes}
-                </Text>
-              </View>
-            )}
           </View>
 
-            {/* Flip Button - Icon only with theme color */}
-            {stackIndex === 0 && (
+            {/* Flip Button - Only show on front when not flipped */}
+            {stackIndex === 0 && !isFlipped && (
               <Pressable
                 style={[
                   styles.flipIconButton,
                   { backgroundColor: colors.accent.primary + '20' },
                 ]}
                 onPress={handleFlip}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Icon
                   name="sync-outline"
@@ -861,21 +847,22 @@ export default function NotifSwipeCard({
               </Pressable>
             </View>
 
-            {/* Flip Button - Bottom right */}
-            <Pressable
-              style={[
-                styles.flipIconButton,
-                { backgroundColor: colors.accent.primary + '20' },
-              ]}
-              onPress={handleFlip}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon
-                name="sync-outline"
-                size={fp(18)}
-                color={colors.accent.primary}
-              />
-            </Pressable>
+            {/* Flip Button - Top right on back side, only show when flipped */}
+            {isFlipped && (
+              <Pressable
+                style={[
+                  styles.flipIconButtonTopRight,
+                  { backgroundColor: colors.accent.primary + '20' },
+                ]}
+                onPress={handleFlip}
+              >
+                <Icon
+                  name="sync-outline"
+                  size={fp(18)}
+                  color={colors.accent.primary}
+                />
+              </Pressable>
+            )}
           </Animated.View>
           </Animated.View>
         </Animated.View>
@@ -1805,6 +1792,17 @@ const styles = StyleSheet.create({
   flipIconButton: {
     position: 'absolute',
     bottom: wp(12),
+    right: wp(12),
+    width: ms(36),
+    height: ms(36),
+    borderRadius: ms(18),
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  flipIconButtonTopRight: {
+    position: 'absolute',
+    top: wp(12),
     right: wp(12),
     width: ms(36),
     height: ms(36),
