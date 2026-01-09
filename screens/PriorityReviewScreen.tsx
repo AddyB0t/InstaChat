@@ -42,7 +42,7 @@ import {
 import NotifSwipeCard from '../components/NotifSwipeCard';
 import SearchModal from '../components/SearchModal';
 import PriorityTutorial from '../components/PriorityTutorial';
-import { wp, hp, fp, ms } from '../utils/responsive';
+import { wp, hp, fp, ms, screenWidth } from '../utils/responsive';
 import { isVideoPlatform, getPlatformConfig, PlatformType } from '../styles/platformColors';
 
 type ViewMode = 'stacks' | 'grid';
@@ -805,7 +805,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
           </View>
 
           {/* Description Preview Box - subtle style */}
-          <View style={[styles.notesPreviewBox, { backgroundColor: colors.background.secondary }]}>
+          <View style={[styles.notesPreviewBox, { backgroundColor: isDark ? 'rgba(80, 80, 80, 0.6)' : colors.background.secondary }]}>
             {visibleCards[0]?.notes ? (
               <Text style={[styles.notesPreviewText, { color: colors.text.primary }]} numberOfLines={2}>
                 {visibleCards[0].notes}
@@ -1239,7 +1239,7 @@ const styles = StyleSheet.create({
   },
   appSubtitle: {
     fontFamily: 'Courier',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
     letterSpacing: 5,
     marginTop: 4,
@@ -1647,11 +1647,12 @@ const styles = StyleSheet.create({
   notesPreviewBox: {
     position: 'absolute',
     bottom: hp(80),
-    left: wp(20),
-    right: wp(20),
+    width: screenWidth * 0.65,
+    alignSelf: 'center',
+    left: screenWidth * 0.175,
     borderRadius: ms(12),
     padding: wp(12),
-    opacity: 0.6,
+    opacity: 0.8,
   },
   notesPreviewHeader: {
     flexDirection: 'row',
@@ -1667,11 +1668,14 @@ const styles = StyleSheet.create({
   notesPreviewText: {
     fontSize: fp(12),
     fontWeight: '300',
+    fontStyle: 'italic',
     lineHeight: fp(18),
+    textAlign: 'center',
   },
   notesPreviewPlaceholder: {
     fontSize: fp(12),
     fontWeight: '300',
     fontStyle: 'italic',
+    textAlign: 'center',
   },
 });
