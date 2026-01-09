@@ -16,6 +16,7 @@ import {
   PanResponder,
   Alert,
   Share,
+  Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, {
@@ -341,8 +342,8 @@ export default function NotifSwipeCard({
       const shouldSwipeRight = e.translationX > SWIPE_THRESHOLD;
 
       if (shouldSwipeLeft) {
-        translateX.value = withTiming(-screenWidth * 1.5, { duration: 300 });
-        cardOpacity.value = withTiming(0, { duration: 250 });
+        translateX.value = withTiming(-screenWidth * 1.5, { duration: 450 });
+        cardOpacity.value = withTiming(0, { duration: 400 });
         runOnJS(handleSwipeComplete)('left');
       } else if (shouldSwipeRight) {
         if (keepCardOnRightSwipe) {
@@ -352,8 +353,8 @@ export default function NotifSwipeCard({
           translateX.value = withSpring(0, { damping: 15 });
           translateY.value = withSpring(0, { damping: 15 });
         } else {
-          translateX.value = withTiming(screenWidth * 1.5, { duration: 300 });
-          cardOpacity.value = withTiming(0, { duration: 250 });
+          translateX.value = withTiming(screenWidth * 1.5, { duration: 450 });
+          cardOpacity.value = withTiming(0, { duration: 400 });
           runOnJS(handleSwipeComplete)('right');
         }
       } else {
@@ -368,10 +369,9 @@ export default function NotifSwipeCard({
   const longPressGesture = Gesture.LongPress()
     .enabled(isTopCard && !isExiting && !isFlipped)
     .minDuration(400)
-    .onEnd((e, success) => {
-      if (success) {
-        runOnJS(handleLongPress)();
-      }
+    .onStart(() => {
+      // Trigger immediately when long press duration is reached (finger still down)
+      runOnJS(handleLongPress)();
     });
 
   const composedGesture = Gesture.Race(panGesture, longPressGesture);
@@ -416,39 +416,49 @@ export default function NotifSwipeCard({
     };
   });
 
-  // Flip animation using scaleX for reliable Android support
-  // Card "flips" by scaling to 0 on X axis, then back to 1
+  // Flip animation - scaleX for Android, no transform for iOS (uses opacity only)
   const flipAnimatedStyle = useAnimatedStyle(() => {
-    // Scale from 1 -> 0 -> 1 as rotateY goes 0 -> 90 -> 180
+    if (Platform.OS === 'ios') {
+      // iOS: just use opacity crossfade, no transform
+      return {};
+    }
+    // Android: use scaleX for flip effect
     const scaleXValue = interpolate(
       rotateY.value,
       [0, 90, 180],
-      [1, 0.001, 1],
+      [1, 0.01, 1],
       Extrapolation.CLAMP
     );
     return {
-      transform: [
-        { perspective: 1000 },
-        { scaleX: scaleXValue },
-      ],
+      transform: [{ scaleX: scaleXValue }],
     };
   });
 
-  // Front side - visible when rotateY < 90
+  // Front side - crossfade opacity
   const frontAnimatedStyle = useAnimatedStyle(() => {
-    const isVisible = rotateY.value < 90;
+    const opacity = interpolate(
+      rotateY.value,
+      [0, 90],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
     return {
-      opacity: isVisible ? 1 : 0,
-      zIndex: isVisible ? 2 : 1,
+      opacity,
+      zIndex: rotateY.value < 90 ? 2 : 1,
     };
   });
 
-  // Back side - visible when rotateY >= 90
+  // Back side - crossfade opacity
   const backAnimatedStyle = useAnimatedStyle(() => {
-    const isVisible = rotateY.value >= 90;
+    const opacity = interpolate(
+      rotateY.value,
+      [90, 180],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
     return {
-      opacity: isVisible ? 1 : 0,
-      zIndex: isVisible ? 2 : 1,
+      opacity,
+      zIndex: rotateY.value >= 90 ? 2 : 1,
     };
   });
 

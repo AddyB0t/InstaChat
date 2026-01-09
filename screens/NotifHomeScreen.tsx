@@ -20,6 +20,7 @@ import {
   Platform,
   DeviceEventEmitter,
   ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1100,6 +1101,7 @@ export default function NotifHomeScreen({ navigation }: any) {
                             isDarkMode={isDark}
                             overlayMode="open"
                             stackIndex={reversedIdx}
+                            keepCardOnRightSwipe={true}
                           />
                         );
                       })
@@ -1644,7 +1646,10 @@ export default function NotifHomeScreen({ navigation }: any) {
           setHomeFolderName('');
         }}
       >
-        <View style={styles.homeFolderPickerOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.homeFolderPickerOverlay}
+        >
           <View style={[styles.homeFolderPickerContainer, { backgroundColor: colors.background.primary }]}>
             <View style={styles.homeFolderPickerHeader}>
               <Icon name="folder-open" size={28} color="#8B5CF6" />
@@ -1717,7 +1722,7 @@ export default function NotifHomeScreen({ navigation }: any) {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -1800,7 +1805,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Courier',
     fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 8,
+    letterSpacing: 5,
     marginTop: 4,
     textAlign: 'center',
   },
@@ -1892,13 +1897,9 @@ const styles = StyleSheet.create({
     bottom: hp(80),
     left: wp(20),
     right: wp(20),
-    padding: wp(14),
-    borderRadius: ms(16),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    padding: wp(12),
+    borderRadius: ms(12),
+    opacity: 0.6,
   },
   notesPreviewHeader: {
     flexDirection: 'row',
@@ -1907,16 +1908,18 @@ const styles = StyleSheet.create({
     marginBottom: hp(6),
   },
   notesPreviewLabel: {
-    fontSize: fp(12),
-    fontWeight: '600',
+    fontSize: fp(11),
+    fontWeight: '300',
     textTransform: 'uppercase',
   },
   notesPreviewText: {
-    fontSize: fp(14),
-    lineHeight: fp(20),
+    fontSize: fp(12),
+    fontWeight: '300',
+    lineHeight: fp(18),
   },
   notesPreviewPlaceholder: {
-    fontSize: fp(14),
+    fontSize: fp(12),
+    fontWeight: '300',
     fontStyle: 'italic',
   },
   instructionRow: {

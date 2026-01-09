@@ -21,6 +21,8 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -802,12 +804,8 @@ export default function PriorityReviewScreen({ navigation }: any) {
             ))}
           </View>
 
-          {/* Description Preview Box */}
+          {/* Description Preview Box - subtle style */}
           <View style={[styles.notesPreviewBox, { backgroundColor: colors.background.secondary }]}>
-            <View style={styles.notesPreviewHeader}>
-              <Icon name="document-text-outline" size={16} color={colors.accent.primary} />
-              <Text style={[styles.notesPreviewLabel, { color: colors.text.tertiary }]}>Description</Text>
-            </View>
             {visibleCards[0]?.notes ? (
               <Text style={[styles.notesPreviewText, { color: colors.text.primary }]} numberOfLines={2}>
                 {visibleCards[0].notes}
@@ -852,7 +850,10 @@ export default function PriorityReviewScreen({ navigation }: any) {
         animationType="slide"
         onRequestClose={() => setShowFolderModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
@@ -956,7 +957,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
               </>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Folder Picker Modal */}
@@ -969,7 +970,10 @@ export default function PriorityReviewScreen({ navigation }: any) {
           setArticleToAddToFolder(null);
         }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
@@ -1050,7 +1054,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
               <Text style={[styles.folderCancelText, { color: colors.text.secondary }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Save All to Folder Modal */}
@@ -1063,7 +1067,10 @@ export default function PriorityReviewScreen({ navigation }: any) {
           setSaveAllFolderName('');
         }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
@@ -1144,7 +1151,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
               <Text style={[styles.folderCancelText, { color: colors.text.secondary }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Priority Tutorial */}
@@ -1234,7 +1241,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Courier',
     fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 8,
+    letterSpacing: 5,
     marginTop: 4,
     textAlign: 'center',
   },
@@ -1636,19 +1643,15 @@ const styles = StyleSheet.create({
     right: wp(8),
     top: hp(7),
   },
-  // Notes preview styles
+  // Notes preview styles - subtle, non-distracting
   notesPreviewBox: {
     position: 'absolute',
     bottom: hp(80),
     left: wp(20),
     right: wp(20),
     borderRadius: ms(12),
-    padding: wp(14),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    padding: wp(12),
+    opacity: 0.6,
   },
   notesPreviewHeader: {
     flexDirection: 'row',
@@ -1657,16 +1660,18 @@ const styles = StyleSheet.create({
     marginBottom: hp(6),
   },
   notesPreviewLabel: {
-    fontSize: fp(12),
-    fontWeight: '600',
+    fontSize: fp(11),
+    fontWeight: '300',
     textTransform: 'uppercase',
   },
   notesPreviewText: {
-    fontSize: fp(14),
-    lineHeight: fp(20),
+    fontSize: fp(12),
+    fontWeight: '300',
+    lineHeight: fp(18),
   },
   notesPreviewPlaceholder: {
-    fontSize: fp(14),
+    fontSize: fp(12),
+    fontWeight: '300',
     fontStyle: 'italic',
   },
 });

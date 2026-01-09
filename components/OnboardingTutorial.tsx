@@ -21,7 +21,7 @@ interface TutorialStep {
   title: string;
   description: string;
   showCard: boolean;
-  highlightFeature?: 'swipe-left' | 'swipe-right' | 'long-press' | 'double-tap' | 'navbar' | 'none';
+  highlightFeature?: 'swipe-left' | 'swipe-right' | 'long-press' | 'flip' | 'navbar' | 'none';
 }
 
 const TUTORIAL_STEPS: TutorialStep[] = [
@@ -54,11 +54,11 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     highlightFeature: 'long-press',
   },
   {
-    id: 'double-tap',
-    title: 'Double-Tap for Notes',
-    description: 'Double-tap to add personal notes that help you remember why you saved it.',
+    id: 'flip',
+    title: 'Flip for Description',
+    description: 'Tap the flip button to add a personal description that helps you remember why you saved it.',
     showCard: true,
-    highlightFeature: 'double-tap',
+    highlightFeature: 'flip',
   },
   {
     id: 'view-modes',
@@ -132,7 +132,7 @@ export default function OnboardingTutorial({
           styles.dummyCard,
           { backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF' },
           step.highlightFeature === 'long-press' && styles.cardHighlighted,
-          step.highlightFeature === 'double-tap' && styles.cardHighlighted,
+          step.highlightFeature === 'flip' && styles.cardHighlighted,
         ]}>
           {/* Card Header */}
           <View style={styles.cardHeader}>
@@ -164,10 +164,10 @@ export default function OnboardingTutorial({
               <Text style={[styles.featureText, { color: colors.accent.primary }]}>Hold</Text>
             </View>
           )}
-          {step.highlightFeature === 'double-tap' && (
+          {step.highlightFeature === 'flip' && (
             <View style={styles.featureOverlay}>
-              <Icon name="finger-print" size={32} color={colors.accent.primary} />
-              <Text style={[styles.featureText, { color: colors.accent.primary }]}>Tap Tap</Text>
+              <Icon name="sync-outline" size={32} color={colors.accent.primary} />
+              <Text style={[styles.featureText, { color: colors.accent.primary }]}>Flip</Text>
             </View>
           )}
         </View>
