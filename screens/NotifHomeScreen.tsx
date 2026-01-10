@@ -21,6 +21,7 @@ import {
   DeviceEventEmitter,
   ScrollView,
   KeyboardAvoidingView,
+  Share,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -212,6 +213,19 @@ export default function NotifHomeScreen({ navigation }: any) {
 
   const visibleCards = getVisibleCards();
 
+  // Get visible folder cards for folder stack (3 cards with modular wrapping)
+  const getVisibleFolderCards = () => {
+    if (folderArticles.length === 0) return [];
+    const visible = [];
+    for (let i = 0; i < Math.min(3, folderArticles.length); i++) {
+      const index = (folderArticleIndex + i) % folderArticles.length;
+      visible.push(folderArticles[index]);
+    }
+    return visible;
+  };
+
+  const visibleFolderCards = getVisibleFolderCards();
+
   const handleSwipeLeft = async (articleId: number) => {
     // Skip - cycle to bottom of stack
     setSwipeHistory(prev => [...prev, articleId]);
@@ -371,14 +385,12 @@ export default function NotifHomeScreen({ navigation }: any) {
 
   // Handle folder card swipe left (skip to next)
   const handleFolderSwipeLeft = (articleId: number) => {
-    // If only one card, force re-render with reset key
+    // If only one card, force re-render with reset key (same as home screen)
     if (folderArticles.length === 1) {
       setFolderCardResetKey(prev => prev + 1);
-    } else if (folderArticleIndex >= folderArticles.length - 1) {
-      // At the end, reset to start
-      setFolderArticleIndex(0);
     } else {
-      setFolderArticleIndex(prev => prev + 1);
+      // Use modular arithmetic to wrap around (same as home screen)
+      setFolderArticleIndex(prev => (prev + 1) % folderArticles.length);
     }
   };
 
@@ -388,14 +400,12 @@ export default function NotifHomeScreen({ navigation }: any) {
     if (article) {
       openArticleUrl(article);
     }
-    // If only one card, force re-render with reset key
+    // If only one card, force re-render with reset key (same as home screen)
     if (folderArticles.length === 1) {
       setFolderCardResetKey(prev => prev + 1);
-    } else if (folderArticleIndex >= folderArticles.length - 1) {
-      // At the end, reset to start
-      setFolderArticleIndex(0);
     } else {
-      setFolderArticleIndex(prev => prev + 1);
+      // Use modular arithmetic to wrap around (same as home screen)
+      setFolderArticleIndex(prev => (prev + 1) % folderArticles.length);
     }
   };
 
@@ -410,6 +420,39 @@ export default function NotifHomeScreen({ navigation }: any) {
   const handleFolderLongPress = (folder: Folder) => {
     setFolderToEdit(folder);
     setShowFolderOptionsModal(true);
+  };
+
+  // Share all articles in a folder
+  const handleShareFolder = async (folder: Folder) => {
+    try {
+      const articles = await getArticlesByFolder(folder.id);
+
+      if (articles.length === 0) {
+        Alert.alert('Empty Folder', 'No articles to share in this folder.');
+        return;
+      }
+
+      // Format the share message
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      let message = `${folder.name}\n\n`;
+
+      articles.forEach((article, index) => {
+        message += `${index + 1}. ${article.title}\n\n   ${article.url}\n\n`;
+      });
+
+      message += `Shared via NotiF                    ${timestamp}`;
+
+      await Share.share({
+        message: message,
+        title: folder.name,
+      });
+
+      setShowFolderOptionsModal(false);
+    } catch (error) {
+      console.error('[NotifHomeScreen] Error sharing folder:', error);
+      Alert.alert('Error', 'Failed to share folder');
+    }
   };
 
   // Delete folder
@@ -846,7 +889,7 @@ export default function NotifHomeScreen({ navigation }: any) {
             {/* Description Preview Box - below card */}
             <View style={[styles.notesPreviewBox, { backgroundColor: isDark ? 'rgba(80, 80, 80, 0.6)' : colors.background.secondary }]}>
               {visibleCards[0]?.notes ? (
-                <Text style={[styles.notesPreviewText, { color: colors.text.primary }]} numberOfLines={2}>
+                <Text style={[styles.notesPreviewText, { color: colors.text.tertiary }]} numberOfLines={2}>
                   {visibleCards[0].notes}
                 </Text>
               ) : (
@@ -1082,29 +1125,23 @@ export default function NotifHomeScreen({ navigation }: any) {
               {folderViewMode === 'stack' ? (
                 // Stack view with swipe cards
                 <View style={styles.folderCardsContainer}>
-                  {folderArticles.length > 0 ? (
-                    // Visible cards stack
-                    folderArticles
-                      .slice(folderArticleIndex, folderArticleIndex + 3)
-                      .reverse()
-                      .map((article, idx) => {
-                        const reversedIdx = folderArticles.slice(folderArticleIndex, folderArticleIndex + 3).length - 1 - idx;
-                        return (
-                          <NotifSwipeCard
-                            key={`folder-${article.id}-${folderArticleIndex}-${folderCardResetKey}`}
-                            article={article}
-                            onSwipeLeft={handleFolderSwipeLeft}
-                            onSwipeRight={handleFolderSwipeRight}
-                            onTagsSaved={loadArticles}
-                            isTopCard={reversedIdx === 0}
-                            colors={colors}
-                            isDarkMode={isDark}
-                            overlayMode="open"
-                            stackIndex={reversedIdx}
-                            keepCardOnRightSwipe={true}
-                          />
-                        );
-                      })
+                  {visibleFolderCards.length > 0 ? (
+                    // Visible cards stack (same pattern as home screen)
+                    visibleFolderCards.map((article, index) => (
+                      <NotifSwipeCard
+                        key={`folder-${article.id}-${folderCardResetKey}`}
+                        article={article}
+                        onSwipeLeft={handleFolderSwipeLeft}
+                        onSwipeRight={handleFolderSwipeRight}
+                        onTagsSaved={loadArticles}
+                        isTopCard={index === 0}
+                        colors={colors}
+                        isDarkMode={isDark}
+                        overlayMode="open"
+                        stackIndex={index}
+                        keepCardOnRightSwipe={true}
+                      />
+                    ))
                   ) : (
                     <View style={styles.emptyTagFolder}>
                       <Icon name="folder-open-outline" size={48} color={colors.text.tertiary} />
@@ -1528,6 +1565,17 @@ export default function NotifHomeScreen({ navigation }: any) {
                 {folderToEdit?.name}
               </Text>
             </View>
+
+            {/* Share Option */}
+            <TouchableOpacity
+              style={[styles.folderOptionsItem, { backgroundColor: colors.background.secondary }]}
+              onPress={() => folderToEdit && handleShareFolder(folderToEdit)}
+            >
+              <Icon name="share-social-outline" size={20} color={colors.accent.primary} />
+              <Text style={[styles.folderOptionsItemText, { color: colors.text.primary }]}>
+                Share Folder
+              </Text>
+            </TouchableOpacity>
 
             {/* Rename Option */}
             <TouchableOpacity

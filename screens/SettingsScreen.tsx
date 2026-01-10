@@ -57,10 +57,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     Alert.alert('Sort & Filter', 'Sort and filter options coming soon!');
   };
 
-  const handleNotificationsPress = () => {
-    Alert.alert('Smart Notifications', 'Notification settings coming soon!');
-  };
-
   const handleLogout = () => {
     Alert.alert(
       'Logout',
@@ -233,18 +229,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             title="Sort & Filter"
             subtitle="Organize your bookmarks"
             onPress={handleSortFilterPress}
-          />
-        </View>
-
-        {/* Notifications Section */}
-        <SectionHeader title="Notifications" />
-        <View style={styles.sectionContainer}>
-          <SettingRow
-            icon="notifications"
-            iconBgColor={colors.accent.primary}
-            title="Smart Notifications"
-            subtitle="Manage reminders and review schedules"
-            onPress={handleNotificationsPress}
           />
         </View>
 

@@ -807,7 +807,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
           {/* Description Preview Box - subtle style */}
           <View style={[styles.notesPreviewBox, { backgroundColor: isDark ? 'rgba(80, 80, 80, 0.6)' : colors.background.secondary }]}>
             {visibleCards[0]?.notes ? (
-              <Text style={[styles.notesPreviewText, { color: colors.text.primary }]} numberOfLines={2}>
+              <Text style={[styles.notesPreviewText, { color: colors.text.tertiary }]} numberOfLines={2}>
                 {visibleCards[0].notes}
               </Text>
             ) : (

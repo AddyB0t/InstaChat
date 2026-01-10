@@ -77,7 +77,7 @@ const SectionHeader = ({ title, colors }: { title: string; colors: ThemeColors }
 );
 
 export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation }) => {
-  const { settings, updateTheme, getThemedColors } = useTheme();
+  const { settings, updateTheme, updateSettings, getThemedColors } = useTheme();
   const systemColorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
@@ -99,10 +99,6 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
     navigation.navigate('SortFilter');
   };
 
-  const handleNotificationsPress = () => {
-    Alert.alert('Smart Notifications', 'Notification settings coming soon!');
-  };
-
   const handleLogout = () => {
     Alert.alert(
       'Logout',
@@ -114,6 +110,16 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
         }},
       ]
     );
+  };
+
+  const handleResetHomeTutorial = async () => {
+    await updateSettings({ hasCompletedOnboarding: false });
+    Alert.alert('Tutorial Reset', 'Home screen tutorial will show on next visit.');
+  };
+
+  const handleResetPriorityTutorial = async () => {
+    await updateSettings({ hasCompletedPriorityTutorial: false });
+    Alert.alert('Tutorial Reset', 'Priority screen tutorial will show on next visit.');
   };
 
   return (
@@ -137,7 +143,7 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + hp(80) }]}
       >
         {/* Appearance Section */}
         <SectionHeader title="Appearance" colors={colors} />
@@ -182,19 +188,6 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
           />
         </View>
 
-        {/* Notifications Section */}
-        <SectionHeader title="Notifications" colors={colors} />
-        <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
-          <SettingRow
-            iconName="notifications"
-            iconBgColor={colors.accent.primary}
-            title="Smart Notifications"
-            subtitle="Manage reminders and review schedules"
-            onPress={handleNotificationsPress}
-            colors={colors}
-          />
-        </View>
-
         {/* Account Section */}
         <SectionHeader title="Account" colors={colors} />
         <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
@@ -204,6 +197,27 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
             title="Logout"
             subtitle="Sign out of your account"
             onPress={handleLogout}
+            colors={colors}
+          />
+        </View>
+
+        {/* Tutorial Section */}
+        <SectionHeader title="Tutorial" colors={colors} />
+        <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
+          <SettingRow
+            iconName="play-circle-outline"
+            iconBgColor="#22C55E"
+            title="Reset Home Tutorial"
+            subtitle="Show the bookmark tutorial again"
+            onPress={handleResetHomeTutorial}
+            colors={colors}
+          />
+          <SettingRow
+            iconName="star-outline"
+            iconBgColor="#F59E0B"
+            title="Reset Priority Tutorial"
+            subtitle="Show the priority tutorial again"
+            onPress={handleResetPriorityTutorial}
             colors={colors}
           />
         </View>
@@ -296,7 +310,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignItems: 'center',
-    paddingVertical: hp(40),
+    paddingTop: hp(20),
+    paddingBottom: hp(10),
   },
   footerText: {
     fontSize: fp(14),
