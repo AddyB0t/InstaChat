@@ -62,6 +62,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
          let queryItems = components.queryItems,
          let urlParam = queryItems.first(where: { $0.name == "url" })?.value {
+
+        // Clear UserDefaults to prevent duplicate processing from checkForSharedUrl()
+        let appGroupId = "group.com.notif.bookmark"
+        if let userDefaults = UserDefaults(suiteName: appGroupId) {
+          userDefaults.removeObject(forKey: "ShareKey")
+          userDefaults.removeObject(forKey: "ShareQueue")
+          userDefaults.synchronize()
+        }
+
         handleSharedUrl(urlParam)
         return true
       }
