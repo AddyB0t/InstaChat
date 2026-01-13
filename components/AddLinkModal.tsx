@@ -19,6 +19,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { wp, hp, fp, ms } from '../utils/responsive';
 import { saveArticle, updateArticle } from '../services/database';
 import { extractAndCreateArticle, enhanceArticleInBackground } from '../services/articleExtractor';
+import { useSubscription } from '../context/SubscriptionContext';
+import { canSaveArticle, FREE_ARTICLE_LIMIT } from '../services/subscriptionService';
 
 interface AddLinkModalProps {
   visible: boolean;
@@ -26,6 +28,7 @@ interface AddLinkModalProps {
   isDarkMode: boolean;
   colors: any;
   onLinkAdded?: () => void;
+  onPremiumRequired?: (articleCount: number) => void;
 }
 
 export default function AddLinkModal({
@@ -34,7 +37,9 @@ export default function AddLinkModal({
   isDarkMode,
   colors,
   onLinkAdded,
+  onPremiumRequired,
 }: AddLinkModalProps) {
+  const { isPremium } = useSubscription();
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -54,6 +59,16 @@ export default function AddLinkModal({
     try {
       setLoading(true);
       setError('');
+
+      // Check subscription before saving
+      const { canSave, articleCount, requiresPremium } = await canSaveArticle(isPremium);
+      if (requiresPremium) {
+        setLoading(false);
+        setError(`You've reached the ${FREE_ARTICLE_LIMIT} article limit. Upgrade to Premium for unlimited saves.`);
+        onClose();
+        onPremiumRequired?.(articleCount);
+        return;
+      }
 
       // Extract article (FAST - no AI)
       const article = await extractAndCreateArticle(formattedUrl);

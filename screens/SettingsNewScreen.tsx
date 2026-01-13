@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import { ThemeColors } from '../styles/notifTheme';
 import { wp, hp, fp, ms } from '../utils/responsive';
 
@@ -78,6 +79,7 @@ const SectionHeader = ({ title, colors }: { title: string; colors: ThemeColors }
 
 export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation }) => {
   const { settings, updateTheme, updateSettings, getThemedColors } = useTheme();
+  const { isPremium } = useSubscription();
   const systemColorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
@@ -89,6 +91,10 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
 
   const handleThemePress = () => {
     navigation.navigate('ThemeCustomization');
+  };
+
+  const handlePremiumPress = () => {
+    navigation.navigate('Premium');
   };
 
   const handleDarkModeToggle = (value: boolean) => {
@@ -191,6 +197,15 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
         {/* Account Section */}
         <SectionHeader title="Account" colors={colors} />
         <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
+          <SettingRow
+            iconName="star"
+            iconBgColor={isPremium ? '#22C55E' : '#F59E0B'}
+            title={isPremium ? 'Premium Active' : 'Upgrade to Premium'}
+            subtitle={isPremium ? 'Unlimited article saves' : 'Save unlimited articles'}
+            onPress={handlePremiumPress}
+            colors={colors}
+          />
+          <View style={styles.rowDivider} />
           <SettingRow
             iconName="log-out-outline"
             iconBgColor="#EF4444"

@@ -12,9 +12,12 @@ import { config } from '@gluestack-ui/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootNavigator } from './navigation/RootNavigator';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { SubscriptionProvider, useSubscription } from './context/SubscriptionContext';
 import { extractAndCreateArticle, enhanceArticleInBackground } from './services/articleExtractor';
 import { saveArticle, updateArticle } from './services/database';
+import { canSaveArticle } from './services/subscriptionService';
 import OnboardingScreen from './screens/OnboardingScreen';
+import PremiumModal from './components/PremiumModal';
 
 const ONBOARDING_KEY = '@instachat_onboarding_complete';
 const APP_VERSION_KEY = '@instachat_app_version';
@@ -36,12 +39,15 @@ export const ShareContext = createContext<ShareContextType>({
 export const useShare = () => useContext(ShareContext);
 
 function AppContent() {
-  const { getColors } = useTheme();
+  const { getColors, getThemedColors, settings } = useTheme();
+  const { isPremium } = useSubscription();
   const currentColors = getColors();
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [premiumArticleCount, setPremiumArticleCount] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const mainFadeAnim = useRef(new Animated.Value(0)).current;
   const navigationRef = useRef<any>(null);
@@ -142,6 +148,17 @@ function AppContent() {
     processingUrlsRef.current.add(normalizedUrl);
 
     console.log('[App] Auto-saving shared article:', url);
+
+    // Check subscription before saving
+    const { canSave, articleCount, requiresPremium } = await canSaveArticle(isPremium);
+    if (requiresPremium) {
+      console.log('[App] Article limit reached, showing premium modal');
+      setPremiumArticleCount(articleCount);
+      setShowPremiumModal(true);
+      processingUrlsRef.current.delete(normalizedUrl);
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Extract article (FAST - no AI)
@@ -305,6 +322,14 @@ function AppContent() {
             </View>
           </View>
         </Modal>
+
+        {/* Premium upgrade modal */}
+        <PremiumModal
+          visible={showPremiumModal}
+          onClose={() => setShowPremiumModal(false)}
+          colors={getThemedColors(settings.theme === 'dark')}
+          articleCount={premiumArticleCount}
+        />
       </SafeAreaProvider>
     </ShareContext.Provider>
   );
@@ -328,9 +353,11 @@ function GluestackWrapper() {
 
 function App() {
   return (
-    <ThemeProvider>
-      <GluestackWrapper />
-    </ThemeProvider>
+    <SubscriptionProvider>
+      <ThemeProvider>
+        <GluestackWrapper />
+      </ThemeProvider>
+    </SubscriptionProvider>
   );
 }
 

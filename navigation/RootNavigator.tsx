@@ -18,6 +18,7 @@ import { ThemeCustomizationScreen } from '../screens/ThemeCustomizationScreen';
 import { SortFilterScreen } from '../screens/SortFilterScreen';
 import ArticleDetailScreen from '../screens/ArticleDetailScreen';
 import PriorityReviewScreen from '../screens/PriorityReviewScreen';
+import PremiumScreen from '../screens/PremiumScreen';
 import { useTheme } from '../context/ThemeContext';
 
 const Stack = createStackNavigator();
@@ -116,6 +117,10 @@ function SettingsStackNavigator() {
       <Stack.Screen
         name="SortFilter"
         component={SortFilterScreen}
+      />
+      <Stack.Screen
+        name="Premium"
+        component={PremiumScreen}
       />
       <Stack.Screen
         name="PriorityReview"
