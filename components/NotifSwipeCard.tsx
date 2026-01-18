@@ -37,6 +37,7 @@ import { ThemeContext } from '../context/ThemeContext';
 import { PlatformType, getPlatformConfig, getVideoThumbnailUrl, isVideoPlatform } from '../styles/platformColors';
 import { wp, hp, fp, ms, screenWidth, widthPercent } from '../utils/responsive';
 import VideoPreviewModal from './VideoPreviewModal';
+import Haptic from '../services/hapticService';
 
 const CARD_WIDTH = widthPercent(65);
 const CARD_HEIGHT = widthPercent(70);
@@ -175,6 +176,9 @@ export default function NotifSwipeCard({
     }
     lastFlipTime.current = now;
 
+    // Haptic feedback on flip
+    Haptic.light();
+
     const newFlipped = !isFlipped;
     console.log('[NotifSwipeCard] Flipping to:', newFlipped);
     setIsFlipped(newFlipped);
@@ -195,6 +199,8 @@ export default function NotifSwipeCard({
       console.log('[NotifSwipeCard] Saving notes:', trimmedNotes, 'for article:', article.id);
       await updateArticle(article.id, { notes: trimmedNotes || undefined });
       console.log('[NotifSwipeCard] Notes saved successfully');
+      // Haptic feedback on save success
+      Haptic.success();
       // Flip back to front
       setIsFlipped(false);
       rotateY.value = withSpring(0, { damping: 15, stiffness: 100 });
@@ -205,6 +211,7 @@ export default function NotifSwipeCard({
       }
     } catch (error) {
       console.error('[NotifSwipeCard] Error saving notes:', error);
+      Haptic.error();
       Alert.alert('Error', 'Failed to save description.');
     }
   };
@@ -300,12 +307,14 @@ export default function NotifSwipeCard({
 
   const handlePreview = () => {
     console.log('[NotifSwipeCard] Opening link directly:', article.url);
+    Haptic.light();
     // Always open the link directly in browser/app
     handleOpenLink();
   };
 
   const handleShare = async () => {
     console.log('[NotifSwipeCard] Sharing article:', article.url);
+    Haptic.light();
     if (article.url) {
       try {
         await Share.share({
@@ -332,6 +341,8 @@ export default function NotifSwipeCard({
     .onStart(() => {
       // Scale up slightly on drag start
       scale.value = withSpring(1.02, { damping: 15 });
+      // Haptic feedback on drag start
+      runOnJS(Haptic.light)();
     })
     .onUpdate((e) => {
       translateX.value = e.translationX;
@@ -342,10 +353,14 @@ export default function NotifSwipeCard({
       const shouldSwipeRight = e.translationX > SWIPE_THRESHOLD;
 
       if (shouldSwipeLeft) {
+        // Haptic feedback for skip/delete action
+        runOnJS(Haptic.warning)();
         translateX.value = withTiming(-screenWidth * 1.5, { duration: 450 });
         cardOpacity.value = withTiming(0, { duration: 400 });
         runOnJS(handleSwipeComplete)('left');
       } else if (shouldSwipeRight) {
+        // Haptic feedback for save/priority action
+        runOnJS(Haptic.success)();
         if (keepCardOnRightSwipe) {
           // Call onSwipeRight immediately (don't wait for animation)
           runOnJS(onSwipeRight)(article.id);
@@ -370,6 +385,8 @@ export default function NotifSwipeCard({
     .enabled(isTopCard && !isExiting && !isFlipped)
     .minDuration(400)
     .onStart(() => {
+      // Haptic feedback on long press
+      runOnJS(Haptic.medium)();
       // Trigger immediately when long press duration is reached (finger still down)
       runOnJS(handleLongPress)();
     });

@@ -19,6 +19,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { Article } from '../services/database';
 import { PlatformBadge } from './PlatformBadge';
 import { getGradientByIndex } from '../styles/gradients';
+import Haptic from '../services/hapticService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 100;
@@ -63,6 +64,8 @@ export const SwipeCardNew: React.FC<SwipeCardNewProps> = ({
         return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
       },
       onPanResponderGrant: () => {
+        // Haptic feedback on drag start
+        Haptic.light();
         // Add slight scale effect on press
         Animated.spring(scale, {
           toValue: 0.98,
@@ -96,6 +99,8 @@ export const SwipeCardNew: React.FC<SwipeCardNewProps> = ({
 
         // Check for up swipe first (bundle)
         if (dy < -SWIPE_UP_THRESHOLD && absDy > absDx) {
+          // Haptic feedback for bundle action
+          Haptic.success();
           // Swipe up - add to bundle
           Animated.timing(pan, {
             toValue: { x: 0, y: -SCREEN_HEIGHT },
@@ -109,6 +114,8 @@ export const SwipeCardNew: React.FC<SwipeCardNewProps> = ({
 
         // Check for right swipe (open & read)
         if (dx > SWIPE_THRESHOLD) {
+          // Haptic feedback for read action
+          Haptic.success();
           Animated.parallel([
             Animated.timing(pan, {
               toValue: { x: SCREEN_WIDTH + 100, y: dy },
@@ -128,6 +135,8 @@ export const SwipeCardNew: React.FC<SwipeCardNewProps> = ({
 
         // Check for left swipe (skip)
         if (dx < -SWIPE_THRESHOLD) {
+          // Haptic feedback for skip action
+          Haptic.warning();
           Animated.parallel([
             Animated.timing(pan, {
               toValue: { x: -SCREEN_WIDTH - 100, y: dy },

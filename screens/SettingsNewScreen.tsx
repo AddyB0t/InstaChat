@@ -23,6 +23,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { ThemeColors } from '../styles/notifTheme';
 import { wp, hp, fp, ms } from '../utils/responsive';
+import Haptic from '../services/hapticService';
 
 interface SettingsNewScreenProps {
   navigation: any;
@@ -97,10 +98,12 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
   const colors = getThemedColors(isDark);
 
   const handleThemePress = () => {
+    Haptic.light();
     navigation.navigate('ThemeCustomization');
   };
 
   const handlePremiumPress = () => {
+    Haptic.light();
     navigation.navigate('Premium');
   };
 
@@ -143,17 +146,21 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
     setShowDevModal(false);
     setDevPassword('');
     if (success) {
+      Haptic.success();
       Alert.alert('Dev Mode Enabled', 'All premium features are now unlocked!');
     } else {
+      Haptic.error();
       Alert.alert('Invalid Password', 'The password you entered is incorrect.');
     }
   };
 
   const handleDarkModeToggle = (value: boolean) => {
+    Haptic.selection();
     updateTheme('theme', value ? 'dark' : 'light');
   };
 
   const handleSortFilterPress = () => {
+    Haptic.light();
     navigation.navigate('SortFilter');
   };
 
@@ -171,11 +178,13 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
   };
 
   const handleResetHomeTutorial = async () => {
+    Haptic.light();
     await updateSettings({ hasCompletedOnboarding: false });
     Alert.alert('Tutorial Reset', 'Home screen tutorial will show on next visit.');
   };
 
   const handleResetPriorityTutorial = async () => {
+    Haptic.light();
     await updateSettings({ hasCompletedPriorityTutorial: false });
     Alert.alert('Tutorial Reset', 'Priority screen tutorial will show on next visit.');
   };

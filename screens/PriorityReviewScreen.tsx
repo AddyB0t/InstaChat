@@ -43,6 +43,7 @@ import NotifSwipeCard from '../components/NotifSwipeCard';
 import SearchModal from '../components/SearchModal';
 import PriorityTutorial from '../components/PriorityTutorial';
 import { wp, hp, fp, ms, screenWidth } from '../utils/responsive';
+import Haptic from '../services/hapticService';
 import { isVideoPlatform, getPlatformConfig, PlatformType } from '../styles/platformColors';
 
 type ViewMode = 'stacks' | 'grid';
@@ -226,6 +227,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
 
   const handleUndo = () => {
     if (swipeHistory.length === 0) return;
+    Haptic.light();
     const lastId = swipeHistory[swipeHistory.length - 1];
     setSwipeHistory(prev => prev.slice(0, -1));
     const lastIndex = priorityArticles.findIndex(a => a.id === lastId);
@@ -235,6 +237,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
   };
 
   const handleShuffle = () => {
+    Haptic.medium();
     const shuffled = [...priorityArticles].sort(() => Math.random() - 0.5);
     setPriorityArticles(shuffled);
     setCurrentIndex(0);
@@ -544,7 +547,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
           styles.navBarButton,
           { backgroundColor: selectedView === 'grid' ? colors.accent.primary : colors.background.secondary },
         ]}
-        onPress={() => setSelectedView('grid')}
+        onPress={() => { Haptic.selection(); setSelectedView('grid'); }}
       >
         <Icon name="grid" size={ms(18)} color={selectedView === 'grid' ? '#FFFFFF' : colors.accent.primary} />
       </TouchableOpacity>
@@ -553,7 +556,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
           styles.navBarButton,
           { backgroundColor: selectedView === 'stacks' ? colors.accent.primary : colors.background.secondary },
         ]}
-        onPress={() => setSelectedView('stacks')}
+        onPress={() => { Haptic.selection(); setSelectedView('stacks'); }}
       >
         <Icon name="layers" size={ms(18)} color={selectedView === 'stacks' ? '#FFFFFF' : colors.accent.primary} />
       </TouchableOpacity>

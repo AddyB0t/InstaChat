@@ -16,6 +16,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSubscription, FREE_ARTICLE_LIMIT } from '../context/SubscriptionContext';
 import { ThemeColors } from '../styles/notifTheme';
+import Haptic from '../services/hapticService';
 
 interface PremiumModalProps {
   visible: boolean;
@@ -35,14 +36,17 @@ export default function PremiumModal({
   const [restoring, setRestoring] = useState(false);
 
   const handlePurchase = async () => {
+    Haptic.medium();
     setLoading(true);
     try {
       const success = await purchasePremium();
       if (success) {
+        Haptic.success();
         Alert.alert('Success', 'Welcome to Premium! You can now save unlimited articles.');
         onClose();
       }
     } catch (error) {
+      Haptic.error();
       console.error('[PremiumModal] Purchase error:', error);
     } finally {
       setLoading(false);
@@ -50,16 +54,20 @@ export default function PremiumModal({
   };
 
   const handleRestore = async () => {
+    Haptic.light();
     setRestoring(true);
     try {
       const success = await restorePurchases();
       if (success) {
+        Haptic.success();
         Alert.alert('Restored', 'Your premium subscription has been restored!');
         onClose();
       } else {
+        Haptic.warning();
         Alert.alert('No Subscription', 'No previous subscription found to restore.');
       }
     } catch (error) {
+      Haptic.error();
       console.error('[PremiumModal] Restore error:', error);
       Alert.alert('Error', 'Failed to restore purchases. Please try again.');
     } finally {
