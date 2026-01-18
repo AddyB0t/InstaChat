@@ -46,14 +46,29 @@ export default function PremiumScreen({ navigation }: PremiumScreenProps) {
   }, []);
 
   const handlePurchase = async () => {
+    // Check if offering is available
+    if (!currentOffering) {
+      Alert.alert(
+        'Not Available',
+        'Subscription is not available yet. This may be because:\n\n• The app is still being reviewed\n• Products are not yet configured in App Store Connect\n\nPlease try again later or use the dev mode for testing.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const success = await purchasePremium();
       if (success) {
         Alert.alert('Success', 'Welcome to Premium! You can now save unlimited articles.');
+      } else {
+        Alert.alert('Purchase Failed', 'The purchase could not be completed. Please try again.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[PremiumScreen] Purchase error:', error);
+      if (!error.userCancelled) {
+        Alert.alert('Error', error.message || 'An error occurred during purchase.');
+      }
     } finally {
       setLoading(false);
     }
