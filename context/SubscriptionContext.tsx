@@ -7,9 +7,9 @@ import React, { createContext, useState, useEffect, useContext, ReactNode } from
 import { Platform } from 'react-native';
 import Purchases, { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
 
-// TODO: Replace with your actual RevenueCat API keys from dashboard
-const REVENUECAT_API_KEY_IOS = 'appl_YOUR_IOS_API_KEY';
-const REVENUECAT_API_KEY_ANDROID = 'goog_YOUR_ANDROID_API_KEY';
+// RevenueCat API keys from dashboard
+const REVENUECAT_API_KEY_IOS = 'appl_zsiWtbAlioBfBUbGcIPxuDigslN';
+const REVENUECAT_API_KEY_ANDROID = 'goog_YOUR_ANDROID_API_KEY'; // Add Android key when ready
 
 export const FREE_ARTICLE_LIMIT = 10;
 
