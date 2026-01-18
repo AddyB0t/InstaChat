@@ -5,35 +5,84 @@
 
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
 
 // RevenueCat API keys from dashboard
 const REVENUECAT_API_KEY_IOS = 'appl_zsiWtbAlioBfBUbGcIPxuDigslN';
 const REVENUECAT_API_KEY_ANDROID = 'goog_YOUR_ANDROID_API_KEY'; // Add Android key when ready
 
+const DEV_MODE_KEY = '@notif_dev_mode';
+const DEV_PASSWORD = 'claude-code';
+
 export const FREE_ARTICLE_LIMIT = 10;
 
 interface SubscriptionContextType {
   isPremium: boolean;
   isLoading: boolean;
+  isDevMode: boolean;
   currentOffering: PurchasesPackage | null;
   customerInfo: CustomerInfo | null;
   purchasePremium: () => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
   checkSubscriptionStatus: () => Promise<boolean>;
+  enableDevMode: (password: string) => Promise<boolean>;
+  disableDevMode: () => Promise<void>;
 }
 
 export const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
 export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isPremium, setIsPremium] = useState(false);
+  const [isPremiumState, setIsPremiumState] = useState(false);
+  const [isDevMode, setIsDevMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentOffering, setCurrentOffering] = useState<PurchasesPackage | null>(null);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
 
+  // Combined premium status (either paid or dev mode)
+  const isPremium = isPremiumState || isDevMode;
+
   useEffect(() => {
     initializePurchases();
+    checkDevMode();
   }, []);
+
+  const checkDevMode = async () => {
+    try {
+      const devMode = await AsyncStorage.getItem(DEV_MODE_KEY);
+      if (devMode === 'true') {
+        setIsDevMode(true);
+        console.log('[SubscriptionContext] Dev mode enabled');
+      }
+    } catch (error) {
+      console.error('[SubscriptionContext] Error checking dev mode:', error);
+    }
+  };
+
+  const enableDevMode = async (password: string): Promise<boolean> => {
+    if (password === DEV_PASSWORD) {
+      try {
+        await AsyncStorage.setItem(DEV_MODE_KEY, 'true');
+        setIsDevMode(true);
+        console.log('[SubscriptionContext] Dev mode enabled successfully');
+        return true;
+      } catch (error) {
+        console.error('[SubscriptionContext] Error enabling dev mode:', error);
+        return false;
+      }
+    }
+    return false;
+  };
+
+  const disableDevMode = async (): Promise<void> => {
+    try {
+      await AsyncStorage.removeItem(DEV_MODE_KEY);
+      setIsDevMode(false);
+      console.log('[SubscriptionContext] Dev mode disabled');
+    } catch (error) {
+      console.error('[SubscriptionContext] Error disabling dev mode:', error);
+    }
+  };
 
   const initializePurchases = async () => {
     try {
@@ -50,7 +99,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
 
       // Check if user has premium entitlement
       const hasPremium = info.entitlements.active['premium'] !== undefined;
-      setIsPremium(hasPremium);
+      setIsPremiumState(hasPremium);
 
       // Get offerings (available products)
       const offerings = await Purchases.getOfferings();
@@ -63,7 +112,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       // Listen for customer info updates (e.g., subscription status changes)
       Purchases.addCustomerInfoUpdateListener((info) => {
         setCustomerInfo(info);
-        setIsPremium(info.entitlements.active['premium'] !== undefined);
+        setIsPremiumState(info.entitlements.active['premium'] !== undefined);
       });
 
       console.log('[SubscriptionContext] Initialized, isPremium:', hasPremium);
@@ -78,7 +127,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       const info = await Purchases.getCustomerInfo();
       const hasPremium = info.entitlements.active['premium'] !== undefined;
-      setIsPremium(hasPremium);
+      setIsPremiumState(hasPremium);
       setCustomerInfo(info);
       return hasPremium;
     } catch (error) {
@@ -97,7 +146,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       console.log('[SubscriptionContext] Purchasing package:', currentOffering.identifier);
       const { customerInfo } = await Purchases.purchasePackage(currentOffering);
       const hasPremium = customerInfo.entitlements.active['premium'] !== undefined;
-      setIsPremium(hasPremium);
+      setIsPremiumState(hasPremium);
       setCustomerInfo(customerInfo);
       console.log('[SubscriptionContext] Purchase successful, isPremium:', hasPremium);
       return hasPremium;
@@ -116,7 +165,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       console.log('[SubscriptionContext] Restoring purchases...');
       const info = await Purchases.restorePurchases();
       const hasPremium = info.entitlements.active['premium'] !== undefined;
-      setIsPremium(hasPremium);
+      setIsPremiumState(hasPremium);
       setCustomerInfo(info);
       console.log('[SubscriptionContext] Restore complete, isPremium:', hasPremium);
       return hasPremium;
@@ -130,11 +179,14 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     <SubscriptionContext.Provider value={{
       isPremium,
       isLoading,
+      isDevMode,
       currentOffering,
       customerInfo,
       purchasePremium,
       restorePurchases,
       checkSubscriptionStatus,
+      enableDevMode,
+      disableDevMode,
     }}>
       {children}
     </SubscriptionContext.Provider>

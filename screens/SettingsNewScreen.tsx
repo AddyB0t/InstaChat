@@ -3,7 +3,7 @@
  * NotiF-style settings matching reference design
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
   StatusBar,
   useColorScheme,
   Alert,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -79,9 +81,14 @@ const SectionHeader = ({ title, colors }: { title: string; colors: ThemeColors }
 
 export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation }) => {
   const { settings, updateTheme, updateSettings, getThemedColors } = useTheme();
-  const { isPremium } = useSubscription();
+  const { isPremium, isDevMode, enableDevMode, disableDevMode } = useSubscription();
   const systemColorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
+
+  const [showDevModal, setShowDevModal] = useState(false);
+  const [devPassword, setDevPassword] = useState('');
+  const [tapCount, setTapCount] = useState(0);
+  const [lastTapTime, setLastTapTime] = useState(0);
 
   const isDark =
     settings.theme === 'dark' ||
@@ -95,6 +102,51 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
 
   const handlePremiumPress = () => {
     navigation.navigate('Premium');
+  };
+
+  const handleVersionPress = () => {
+    if (isDevMode) {
+      // Already in dev mode, ask to disable
+      Alert.alert(
+        'Dev Mode Active',
+        'You have developer access. Disable dev mode?',
+        [
+          { text: 'Keep Active', style: 'cancel' },
+          { text: 'Disable', style: 'destructive', onPress: async () => {
+            await disableDevMode();
+            Alert.alert('Dev Mode Disabled', 'Premium features are now locked.');
+          }},
+        ]
+      );
+    } else {
+      const now = Date.now();
+      // Reset tap count if more than 2 seconds since last tap
+      if (now - lastTapTime > 2000) {
+        setTapCount(1);
+      } else {
+        const newCount = tapCount + 1;
+        setTapCount(newCount);
+
+        if (newCount >= 5) {
+          // Show password modal after 5 taps
+          setTapCount(0);
+          setDevPassword('');
+          setShowDevModal(true);
+        }
+      }
+      setLastTapTime(now);
+    }
+  };
+
+  const handleDevPasswordSubmit = async () => {
+    const success = await enableDevMode(devPassword);
+    setShowDevModal(false);
+    setDevPassword('');
+    if (success) {
+      Alert.alert('Dev Mode Enabled', 'All premium features are now unlocked!');
+    } else {
+      Alert.alert('Invalid Password', 'The password you entered is incorrect.');
+    }
   };
 
   const handleDarkModeToggle = (value: boolean) => {
@@ -239,14 +291,66 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.text.tertiary }]}>
-            NotiF v1.0.0
-          </Text>
+          <TouchableOpacity onPress={handleVersionPress} activeOpacity={0.7}>
+            <Text style={[styles.footerText, { color: colors.text.tertiary }]}>
+              NotiF v1.0.0 {isDevMode ? '(Dev)' : ''}
+            </Text>
+          </TouchableOpacity>
           <Text style={[styles.footerSubtext, { color: colors.text.tertiary }]}>
             Save it. Swipe it. Read it later.
           </Text>
         </View>
       </ScrollView>
+
+      {/* Dev Mode Password Modal */}
+      <Modal
+        visible={showDevModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowDevModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background.secondary }]}>
+            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
+              Developer Access
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.text.secondary }]}>
+              Enter password to unlock dev mode
+            </Text>
+            <TextInput
+              style={[styles.passwordInput, {
+                backgroundColor: colors.background.tertiary,
+                color: colors.text.primary,
+                borderColor: colors.background.tertiary,
+              }]}
+              placeholder="Password"
+              placeholderTextColor={colors.text.tertiary}
+              value={devPassword}
+              onChangeText={setDevPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.background.tertiary }]}
+                onPress={() => {
+                  setShowDevModal(false);
+                  setDevPassword('');
+                }}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text.secondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton, { backgroundColor: colors.accent.primary }]}
+                onPress={handleDevPasswordSubmit}
+              >
+                <Text style={styles.submitButtonText}>Unlock</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -335,5 +439,56 @@ const styles = StyleSheet.create({
   footerSubtext: {
     fontSize: fp(12),
     marginTop: hp(4),
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: wp(20),
+  },
+  modalContent: {
+    width: '100%',
+    borderRadius: ms(16),
+    padding: wp(24),
+  },
+  modalTitle: {
+    fontSize: fp(20),
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: hp(8),
+  },
+  modalSubtitle: {
+    fontSize: fp(14),
+    textAlign: 'center',
+    marginBottom: hp(20),
+  },
+  passwordInput: {
+    borderRadius: ms(12),
+    padding: wp(16),
+    fontSize: fp(16),
+    borderWidth: 1,
+    marginBottom: hp(20),
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: wp(12),
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: hp(14),
+    borderRadius: ms(12),
+    alignItems: 'center',
+  },
+  cancelButton: {},
+  submitButton: {},
+  cancelButtonText: {
+    fontSize: fp(16),
+    fontWeight: '600',
+  },
+  submitButtonText: {
+    fontSize: fp(16),
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
