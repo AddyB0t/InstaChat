@@ -40,7 +40,7 @@ export const useShare = () => useContext(ShareContext);
 
 function AppContent() {
   const { getColors, getThemedColors, settings } = useTheme();
-  const { isPremium } = useSubscription();
+  const { isPremium, isLoading: isSubscriptionLoading } = useSubscription();
   const currentColors = getColors();
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -55,6 +55,16 @@ function AppContent() {
   // Track URLs being processed to prevent duplicates from race conditions
   const processingUrlsRef = useRef<Set<string>>(new Set());
   const recentlyProcessedRef = useRef<Map<string, number>>(new Map());
+
+  // Track subscription loading state in ref for async access
+  const subscriptionLoadingRef = useRef(isSubscriptionLoading);
+  const isPremiumRef = useRef(isPremium);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    subscriptionLoadingRef.current = isSubscriptionLoading;
+    isPremiumRef.current = isPremium;
+  }, [isSubscriptionLoading, isPremium]);
 
   // Check for app update and clear caches if needed
   useEffect(() => {
@@ -149,8 +159,15 @@ function AppContent() {
 
     console.log('[App] Auto-saving shared article:', url);
 
-    // Check subscription before saving
-    const { canSave, articleCount, requiresPremium } = await canSaveArticle(isPremium);
+    // Wait for subscription status to load before checking (max 3 seconds)
+    let waitTime = 0;
+    while (subscriptionLoadingRef.current && waitTime < 3000) {
+      await new Promise<void>(resolve => setTimeout(resolve, 100));
+      waitTime += 100;
+    }
+
+    // Check subscription before saving (use ref for current value)
+    const { articleCount, requiresPremium } = await canSaveArticle(isPremiumRef.current);
     if (requiresPremium) {
       console.log('[App] Article limit reached, showing premium modal');
       setPremiumArticleCount(articleCount);
