@@ -46,6 +46,7 @@ import {
 import NotifSwipeCard from '../components/NotifSwipeCard';
 import AddLinkModal from '../components/AddLinkModal';
 import SearchModal from '../components/SearchModal';
+import PremiumModal from '../components/PremiumModal';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import { wp, hp, fp, ms, screenWidth } from '../utils/responsive';
 import { isVideoPlatform, getPlatformConfig, PlatformType } from '../styles/platformColors';
@@ -74,6 +75,8 @@ export default function NotifHomeScreen({ navigation }: any) {
   const [swipeHistory, setSwipeHistory] = useState<number[]>([]);
   const [showAddLinkModal, setShowAddLinkModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [premiumArticleCount, setPremiumArticleCount] = useState(0);
   const [bookmarkedArticles, setBookmarkedArticles] = useState<Article[]>([]); // Priority articles (isBookmarked)
   const [favoriteArticles, setFavoriteArticles] = useState<Article[]>([]); // Starred articles (isFavorite)
   const [showBookmarksFolder, setShowBookmarksFolder] = useState(false);
@@ -1386,6 +1389,18 @@ export default function NotifHomeScreen({ navigation }: any) {
         isDarkMode={isDark}
         colors={colors}
         onLinkAdded={loadArticles}
+        onPremiumRequired={(count) => {
+          setPremiumArticleCount(count);
+          setShowPremiumModal(true);
+        }}
+      />
+
+      {/* Premium Modal */}
+      <PremiumModal
+        visible={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        colors={colors}
+        articleCount={premiumArticleCount}
       />
 
       {/* Search Modal */}
