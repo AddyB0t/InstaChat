@@ -33,6 +33,13 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     highlightFeature: 'none',
   },
   {
+    id: 'save-articles',
+    title: 'Save Articles 2 Ways',
+    description: '1. Share from any app - tap the share button and select NotiF\n\n2. Tap the + button in the app to paste a link manually',
+    showCard: false,
+    highlightFeature: 'none',
+  },
+  {
     id: 'swipe-left',
     title: 'Swipe Left to Skip',
     description: "Swipe left on cards you're not interested in. They'll be marked as read.",
