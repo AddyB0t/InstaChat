@@ -85,6 +85,11 @@ workflows:
       - name: Set up code signing
         script: xcode-project use-profiles
 
+      - name: Increment build number
+        script: |
+          cd ios
+          agvtool new-version -all $PROJECT_BUILD_NUMBER
+
       - name: Build IPA
         script: |
           cd ios
