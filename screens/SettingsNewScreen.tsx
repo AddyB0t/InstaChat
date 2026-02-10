@@ -16,6 +16,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -294,6 +295,28 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
             title="Reset Priority Tutorial"
             subtitle="Show the priority tutorial again"
             onPress={handleResetPriorityTutorial}
+            colors={colors}
+          />
+        </View>
+
+        {/* Legal Section */}
+        <SectionHeader title="Legal" colors={colors} />
+        <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
+          <SettingRow
+            iconName="document-text-outline"
+            iconBgColor="#6B7280"
+            title="Privacy Policy"
+            subtitle="View our privacy policy"
+            onPress={() => Linking.openURL('https://docs.google.com/document/d/e/2PACX-1vQbmQDIuHO9qgtJ5kQOoKJyIkCBrieRL3bfrB9QH_7VtpcWhcZiYtEG2UhFWjSSDtER2jVOjIah0YOQ/pub')}
+            colors={colors}
+          />
+          <View style={styles.rowDivider} />
+          <SettingRow
+            iconName="reader-outline"
+            iconBgColor="#6B7280"
+            title="Terms of Use"
+            subtitle="Apple Standard EULA"
+            onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
             colors={colors}
           />
         </View>

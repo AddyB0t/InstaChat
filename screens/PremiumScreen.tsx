@@ -202,10 +202,19 @@ export default function PremiumScreen({ navigation }: PremiumScreenProps) {
               )}
             </TouchableOpacity>
 
-            {/* Terms */}
+            {/* Subscription Details & Terms */}
             <Text style={[styles.termsText, { color: colors.text.tertiary }]}>
-              Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.
+              NotiF Premium is a monthly subscription at {priceString}. Subscription automatically renews unless cancelled at least 24 hours before the end of the current period. Payment will be charged to your Apple ID account at confirmation of purchase.
             </Text>
+            <View style={styles.legalLinks}>
+              <TouchableOpacity onPress={() => Linking.openURL('https://docs.google.com/document/d/e/2PACX-1vQbmQDIuHO9qgtJ5kQOoKJyIkCBrieRL3bfrB9QH_7VtpcWhcZiYtEG2UhFWjSSDtER2jVOjIah0YOQ/pub')}>
+                <Text style={[styles.legalLinkText, { color: colors.accent.primary }]}>Privacy Policy</Text>
+              </TouchableOpacity>
+              <Text style={[styles.legalSeparator, { color: colors.text.tertiary }]}> | </Text>
+              <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
+                <Text style={[styles.legalLinkText, { color: colors.accent.primary }]}>Terms of Use (EULA)</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
 
@@ -356,6 +365,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: fp(16),
     paddingHorizontal: wp(8),
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: hp(8),
+    marginBottom: hp(8),
+  },
+  legalLinkText: {
+    fontSize: fp(12),
+    textDecorationLine: 'underline',
+  },
+  legalSeparator: {
+    fontSize: fp(12),
   },
   thankYouCard: {
     borderRadius: ms(16),

@@ -12,6 +12,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSubscription, FREE_ARTICLE_LIMIT } from '../context/SubscriptionContext';
@@ -162,6 +163,20 @@ export default function PremiumModal({
               </Text>
             )}
           </TouchableOpacity>
+
+          {/* Subscription Terms & Legal Links */}
+          <Text style={[styles.termsText, { color: colors.text.tertiary }]}>
+            NotiF Premium is a monthly subscription at {priceString}. Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.
+          </Text>
+          <View style={styles.legalLinks}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://docs.google.com/document/d/e/2PACX-1vQbmQDIuHO9qgtJ5kQOoKJyIkCBrieRL3bfrB9QH_7VtpcWhcZiYtEG2UhFWjSSDtER2jVOjIah0YOQ/pub')}>
+              <Text style={[styles.legalLinkText, { color: colors.accent.primary }]}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={[styles.legalSeparator, { color: colors.text.tertiary }]}> | </Text>
+            <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
+              <Text style={[styles.legalLinkText, { color: colors.accent.primary }]}>Terms of Use</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -245,5 +260,25 @@ const styles = StyleSheet.create({
   },
   restoreButtonText: {
     fontSize: 14,
+  },
+  termsText: {
+    fontSize: 10,
+    textAlign: 'center',
+    lineHeight: 14,
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  legalLinkText: {
+    fontSize: 11,
+    textDecorationLine: 'underline',
+  },
+  legalSeparator: {
+    fontSize: 11,
   },
 });
