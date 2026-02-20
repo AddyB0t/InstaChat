@@ -1,10 +1,10 @@
 /**
- * InstaChat App with Share Intent Support
+ * NotiF App with Share Intent Support
  * Handles shared URLs from other apps
  */
 
 import React, { useEffect, useRef, createContext, useState, useContext } from 'react';
-import { StatusBar, NativeModules, NativeEventEmitter, Alert, ToastAndroid, View, ActivityIndicator, Modal, Text, StyleSheet, Animated, DeviceEventEmitter } from 'react-native';
+import { StatusBar, NativeModules, Alert, ToastAndroid, View, ActivityIndicator, Modal, Text, StyleSheet, Animated, DeviceEventEmitter, AppState, Linking } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GluestackUIProvider } from '@gluestack-ui/themed';
@@ -37,6 +37,21 @@ export const ShareContext = createContext<ShareContextType>({
 });
 
 export const useShare = () => useContext(ShareContext);
+
+// Extract article URL from deep link (notif://share?url=...)
+function extractUrlFromDeepLink(deepLink: string): string | null {
+  try {
+    if (deepLink.startsWith('notif://share')) {
+      const match = deepLink.match(/[?&]url=([^&]+)/);
+      if (match) {
+        return decodeURIComponent(match[1]);
+      }
+    }
+  } catch (error) {
+    console.log('[App] Error parsing deep link:', error);
+  }
+  return null;
+}
 
 function AppContent() {
   const { getColors, getThemedColors, settings } = useTheme();
@@ -268,26 +283,53 @@ function AppContent() {
     }
   }, []);
 
-  // Set up global share intent listener with auto-save
+  // Handle shared URLs via React Native's Linking API (primary path for iOS)
   useEffect(() => {
-    if (SharedIntentModule) {
-      try {
-        const eventEmitter = new NativeEventEmitter(SharedIntentModule);
-        const subscription = eventEmitter.addListener(
-          'onShareIntent',
-          async (data: any) => {
-            console.log('[App] Share intent received globally:', data);
-            if (data && data.url) {
-              handleSharedUrl(data.url);
-            }
-          }
-        );
-
-        return () => subscription.remove();
-      } catch (error) {
-        console.log('[App] Error setting up share intent listener:', error);
+    // Cold start: check if app was launched from a URL scheme
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        console.log('[App] Initial URL from Linking:', url);
+        const articleUrl = extractUrlFromDeepLink(url);
+        if (articleUrl) {
+          handleSharedUrl(articleUrl);
+        }
       }
-    }
+    }).catch((err) => {
+      console.log('[App] Error getting initial URL:', err);
+    });
+
+    // Warm start: listen for URL events from RCTOpenURLNotification
+    const subscription = Linking.addEventListener('url', (event) => {
+      console.log('[App] URL event from Linking:', event.url);
+      const articleUrl = extractUrlFromDeepLink(event.url);
+      if (articleUrl) {
+        handleSharedUrl(articleUrl);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  // Fallback: poll for pending URLs when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && SharedIntentModule) {
+        setTimeout(async () => {
+          try {
+            const pendingUrl = await SharedIntentModule.checkPendingShareUrl();
+            if (pendingUrl) {
+              console.log('[App] Found pending share URL on foreground:', pendingUrl);
+              handleSharedUrl(pendingUrl).catch(err =>
+                console.log('[App] Error handling foreground share URL:', err)
+              );
+            }
+          } catch (error) {
+            console.log('[App] Error checking pending share URLs on foreground:', error);
+          }
+        }, 500);
+      }
+    });
+    return () => subscription.remove();
   }, []);
 
   // Show loading while checking onboarding status

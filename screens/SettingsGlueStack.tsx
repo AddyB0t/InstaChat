@@ -306,7 +306,7 @@ const SettingsGlueStack = () => {
           {/* Footer */}
           <VStack space="xs" alignItems="center" py="$8">
             <Text size="sm" fontWeight="$semibold" color="$textLight900" sx={{ _dark: { color: '$white' } }}>
-              InstaChat v1.0.0
+              NotiF v2.0
             </Text>
             <Text size="xs" color="$textLight500" sx={{ _dark: { color: '$textDark400' } }}>
               A read-it-later app for saving articles

@@ -308,7 +308,7 @@ const SettingsMinimalist = () => {
         {/* Footer */}
         <View className="items-center space-y-2 py-8">
           <Text className="text-sm font-semibold text-slate-900 dark:text-white">
-            InstaChat v1.0.0
+            NotiF v2.0
           </Text>
           <Text className="text-xs text-slate-500 dark:text-slate-400">
             A read-it-later app for saving articles

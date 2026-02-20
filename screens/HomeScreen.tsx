@@ -167,7 +167,7 @@ export default function HomeScreen({ navigation }: any) {
     <ScrollView style={[styles.container, { backgroundColor: currentColors.background }]} contentContainerStyle={styles.scrollContent}>
       <View style={[styles.header, { borderBottomColor: currentColors.primary }]}>
         <Text style={styles.headerEmoji}>↗️</Text>
-        <Text style={[styles.title, { color: currentColors.text }]}>InstaChat</Text>
+        <Text style={[styles.title, { color: currentColors.text }]}>NotiF</Text>
         <Text style={[styles.subtitle, { color: currentColors.textSecondary }]}>Share articles to read later</Text>
       </View>
 
@@ -292,7 +292,7 @@ export default function HomeScreen({ navigation }: any) {
       <View style={[styles.infoSection, { backgroundColor: currentColors.surface, borderLeftColor: currentColors.warning }]}>
         <Text style={[styles.infoTitle, { color: currentColors.text }]}>How it works:</Text>
         <Text style={[styles.infoText, { color: currentColors.textSecondary }]}>1. Share a URL from any app</Text>
-        <Text style={[styles.infoText, { color: currentColors.textSecondary }]}>2. InstaChat extracts the article content</Text>
+        <Text style={[styles.infoText, { color: currentColors.textSecondary }]}>2. NotiF extracts the article content</Text>
         <Text style={[styles.infoText, { color: currentColors.textSecondary }]}>3. Your article is saved for reading later</Text>
         <Text style={[styles.infoText, { color: currentColors.textSecondary }]}>4. Access your collection anytime</Text>
       </View>

@@ -4,23 +4,6 @@ import React
 @objc(SharedIntentModule)
 class SharedIntentModule: RCTEventEmitter {
 
-  private var hasListeners = false
-
-  override init() {
-    super.init()
-    // Listen for share intent notifications
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(handleShareIntent(_:)),
-      name: NSNotification.Name("ShareIntentReceived"),
-      object: nil
-    )
-  }
-
-  deinit {
-    NotificationCenter.default.removeObserver(self)
-  }
-
   @objc
   override static func requiresMainQueueSetup() -> Bool {
     return true
@@ -30,22 +13,9 @@ class SharedIntentModule: RCTEventEmitter {
     return ["onShareIntent"]
   }
 
-  override func startObserving() {
-    hasListeners = true
-  }
+  override func startObserving() {}
 
-  override func stopObserving() {
-    hasListeners = false
-  }
-
-  @objc
-  func handleShareIntent(_ notification: Notification) {
-    if let url = notification.userInfo?["url"] as? String {
-      if hasListeners {
-        sendEvent(withName: "onShareIntent", body: ["url": url])
-      }
-    }
-  }
+  override func stopObserving() {}
 
   @objc
   func checkPendingShareUrl(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {

@@ -387,7 +387,7 @@ const SettingsScreenGlueStack = () => {
       {/* Footer */}
       <GlueStackBox p={32} alignItems="center" borderTopWidth={1} borderColor={currentColors.border}>
         <GlueStackText size="sm" weight="600">
-          InstaChat v1.0.0
+          NotiF v2.0
         </GlueStackText>
         <GlueStackText size="xs" color="textSecondary" style={{ marginTop: 8 }}>
           A read-it-later app for saving articles

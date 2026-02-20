@@ -148,7 +148,7 @@ export default function HomeScreenGlueStack({ navigation }: any) {
           <Box alignItems="center" py="$6" borderBottomWidth={2} borderBottomColor="$primary500">
             <Text style={{ fontSize: 48 }}>↗️</Text>
             <Heading size="3xl" color="$textLight900" sx={{ _dark: { color: '$white' } }}>
-              InstaChat
+              NotiF
             </Heading>
             <Text size="sm" color="$textLight500" sx={{ _dark: { color: '$textDark400' } }}>
               Share articles to read later

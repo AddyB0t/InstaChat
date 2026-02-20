@@ -72,8 +72,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
 
         handleSharedUrl(urlParam)
-        return true
       }
+
+      // Forward to React Native's Linking module (primary path)
+      NotificationCenter.default.post(
+        name: NSNotification.Name("RCTOpenURLNotification"),
+        object: nil,
+        userInfo: ["url": url.absoluteString]
+      )
+      return true
     }
     return false
   }
@@ -109,15 +116,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   }
 
   private func handleSharedUrl(_ url: String) {
-    // Store for React Native to retrieve
+    // Store for React Native to retrieve via polling fallback
     AppDelegate.pendingShareUrl = url
-
-    // Post notification for React Native
-    NotificationCenter.default.post(
-      name: NSNotification.Name("ShareIntentReceived"),
-      object: nil,
-      userInfo: ["url": url]
-    )
   }
 }
 
