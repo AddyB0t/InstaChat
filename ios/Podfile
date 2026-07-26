@@ -30,5 +30,15 @@ target 'InstaChat' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Xcode 26.4's Apple clang rejects fmt 11.0.2's C++20 consteval path.
+    # Keep React Native on C++20, but compile only fmt as C++17.
+    installer.pods_project.targets.each do |target|
+      next unless target.name == 'fmt'
+
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+      end
+    end
   end
 end
