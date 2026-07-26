@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, NativeModules, Platform, Share } from 'react-native';
 
 const DEVICE_LOGS_KEY = '@notif_device_logs';
-const MAX_LOG_ENTRIES = 500;
+const MAX_LOG_ENTRIES = 1000;
 const MAX_STRING_LENGTH = 2000;
 
 type DeviceLogLevel = 'debug' | 'info' | 'warn' | 'error';
