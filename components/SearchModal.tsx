@@ -38,10 +38,8 @@ export default function SearchModal({
   visible,
   onClose,
   articles,
-  onArticleSelect,
   onArticleDeleted,
   onArticleTagged,
-  isDarkMode,
   colors,
 }: SearchModalProps) {
   const [searchQuery, setSearchQuery] = useState('');

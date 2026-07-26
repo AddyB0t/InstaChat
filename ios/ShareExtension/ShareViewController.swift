@@ -1,11 +1,13 @@
 import UIKit
 import UniformTypeIdentifiers
+import os
 
 class ShareViewController: UIViewController {
 
     let appGroupId = "group.com.notif.bookmark"
     let sharedKey = "ShareKey"
     let sharedQueueKey = "ShareQueue" // Array of URLs for queuing multiple shares
+    private let logger = Logger(subsystem: "com.notif.bookmark", category: "ShareExtension")
 
     // UI Elements
     private let containerView = UIView()
@@ -16,6 +18,7 @@ class ShareViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        logger.info("Share extension loaded")
         setupUI()
         extractAndSaveURL()
     }
@@ -115,6 +118,7 @@ class ShareViewController: UIViewController {
     private func extractAndSaveURL() {
         guard let extensionItem = extensionContext?.inputItems.first as? NSExtensionItem,
               let attachments = extensionItem.attachments else {
+            logger.error("No extension item attachments found")
             showError()
             return
         }
@@ -122,11 +126,14 @@ class ShareViewController: UIViewController {
         for attachment in attachments {
             // Try URL first
             if attachment.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+                logger.info("Found URL attachment")
                 attachment.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (data, error) in
                     DispatchQueue.main.async {
                         if let url = data as? URL {
+                            self?.logger.info("Loaded URL attachment: \(url.absoluteString, privacy: .private)")
                             self?.saveURL(url.absoluteString)
                         } else {
+                            self?.logger.error("Failed to load URL attachment")
                             self?.showError()
                         }
                     }
@@ -136,13 +143,16 @@ class ShareViewController: UIViewController {
 
             // Try plain text (might contain URL)
             if attachment.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                logger.info("Found plain text attachment")
                 attachment.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { [weak self] (data, error) in
                     DispatchQueue.main.async {
                         if let text = data as? String {
                             // Extract URL from text if present
                             let urlString = self?.extractURL(from: text) ?? text
+                            self?.logger.info("Loaded text attachment")
                             self?.saveURL(urlString)
                         } else {
+                            self?.logger.error("Failed to load plain text attachment")
                             self?.showError()
                         }
                     }
@@ -172,10 +182,12 @@ class ShareViewController: UIViewController {
             userDefaults.set(urlString, forKey: sharedKey)
             userDefaults.set(Date().timeIntervalSince1970, forKey: "ShareTimestamp")
             userDefaults.synchronize()
+            logger.info("Saved shared URL to app group")
 
             // Show brief success then open the app
             showSuccessAndOpenApp(urlString)
         } else {
+            logger.error("Unable to open app group UserDefaults")
             showError()
         }
     }
@@ -198,11 +210,13 @@ class ShareViewController: UIViewController {
         // Encode the URL for passing via URL scheme
         guard let encodedUrl = urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let appUrl = URL(string: "notif://share?url=\(encodedUrl)") else {
+            logger.error("Unable to build containing app URL")
             self.dismissExtension()
             return
         }
 
         // Open containing app via URL scheme
+        logger.info("Opening containing app")
         var responder: UIResponder? = self
         while responder != nil {
             if let application = responder as? UIApplication {

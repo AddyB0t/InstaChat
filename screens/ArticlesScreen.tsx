@@ -14,7 +14,6 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  NativeModules,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Article, getAllArticles, deleteArticle, searchArticles } from '../services/database';

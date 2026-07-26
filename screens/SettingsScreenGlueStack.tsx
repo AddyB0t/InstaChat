@@ -14,15 +14,12 @@ import {
 } from 'react-native';
 import { clearAllArticles, AppSettings, addTagsToAllArticles } from '../services/database';
 import { useTheme } from '../context/ThemeContext';
-import { useGlueStackTheme } from '../context/GlueStackThemeContext';
 import { testAiConnection } from '../services/aiEnhancer';
 import { GlueStackBox } from '../components/GlueStackBox';
 import { GlueStackText } from '../components/GlueStackText';
-import { GlueStackButton } from '../components/GlueStackButton';
 
 const SettingsScreenGlueStack = () => {
   const { settings, updateTheme, getColors } = useTheme();
-  const { theme, toggleTheme } = useGlueStackTheme();
   const currentColors = getColors();
 
   const [isTestingConnection, setIsTestingConnection] = useState(false);
@@ -52,7 +49,7 @@ const SettingsScreenGlueStack = () => {
               const updatedCount = await addTagsToAllArticles(tags);
               setBulkTagInput('');
               Alert.alert('Success', `Tags added to ${updatedCount} articles`);
-            } catch (error) {
+            } catch {
               Alert.alert('Error', 'Failed to add tags to articles');
             } finally {
               setIsAddingTags(false);
@@ -72,7 +69,7 @@ const SettingsScreenGlueStack = () => {
       } else {
         Alert.alert('Connection Failed', result.message);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to test connection');
     } finally {
       setIsTestingConnection(false);

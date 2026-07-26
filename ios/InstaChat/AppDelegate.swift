@@ -2,6 +2,7 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
+import os
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -13,11 +14,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   // Store pending shared URLs (queue)
   static var pendingShareUrl: String?
   static var pendingShareQueue: [String] = []
+  private let logger = Logger(subsystem: "com.notif.bookmark", category: "AppDelegate")
 
   func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    logger.info("didFinishLaunchingWithOptions")
+
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -48,6 +52,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   }
 
   @objc func applicationDidBecomeActive() {
+    logger.info("applicationDidBecomeActive")
     // Check for shared URL when app comes to foreground
     checkForSharedUrl()
   }
@@ -58,6 +63,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
+    logger.info("openURL received: \(url.absoluteString, privacy: .private)")
+
     if url.scheme == "notif" && url.host == "share" {
       if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
          let queryItems = components.queryItems,
@@ -87,14 +94,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
   // Check for shared URL from UserDefaults (app group)
   private func checkForSharedUrl() {
+    logger.debug("Checking app group for pending share URLs")
+
     let appGroupId = "group.com.notif.bookmark"
     let sharedKey = "ShareKey"
     let sharedQueueKey = "ShareQueue"
 
-    guard let userDefaults = UserDefaults(suiteName: appGroupId) else { return }
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      logger.error("Unable to open app group UserDefaults")
+      return
+    }
 
     // First, check for queued URLs (multiple shares)
     if let queue = userDefaults.stringArray(forKey: sharedQueueKey), !queue.isEmpty {
+      logger.info("Found queued share URLs: \(queue.count, privacy: .public)")
       // Clear the queue
       userDefaults.removeObject(forKey: sharedQueueKey)
       userDefaults.removeObject(forKey: sharedKey)
@@ -109,6 +122,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // Fallback: check single URL for backward compatibility
     if let sharedUrl = userDefaults.string(forKey: sharedKey) {
+      logger.info("Found single pending share URL")
       userDefaults.removeObject(forKey: sharedKey)
       userDefaults.synchronize()
       handleSharedUrl(sharedUrl)
@@ -116,8 +130,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   }
 
   private func handleSharedUrl(_ url: String) {
-    // Store for React Native to retrieve via polling fallback
-    AppDelegate.pendingShareUrl = url
+    // Store for React Native to retrieve via polling fallback.
+    if AppDelegate.pendingShareUrl == nil {
+      AppDelegate.pendingShareUrl = url
+    } else {
+      AppDelegate.pendingShareQueue.append(url)
+    }
+
+    let queueDepth = AppDelegate.pendingShareQueue.count + (AppDelegate.pendingShareUrl == nil ? 0 : 1)
+    logger.info("Queued shared URL for JS bridge. queueDepth=\(queueDepth, privacy: .public)")
   }
 }
 

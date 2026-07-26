@@ -115,7 +115,7 @@ export interface ThemeColors {
 export const getThemeColors = (
   isDarkMode: boolean,
   lightAccent: LightAccent = 'orange',
-  lightBackground: LightBackground = 'paper',
+  lightBackground: LightBackground = 'pure-white',
   darkAccent: DarkAccent = 'orange',
   darkBackground: DarkBackground = 'true-black'
 ): ThemeColors => {

@@ -3,7 +3,7 @@
  * Configure app appearance, collections, notifications, and account
  */
 
-import React, { useState, useEffect, useContext } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { ThemeContext } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import { getThemeColors } from '../styles/notifTheme';
 import { wp, hp, fp, ms } from '../utils/responsive';
 import { clearAllArticles } from '../services/database';
@@ -27,7 +27,7 @@ interface SettingsScreenProps {
 }
 
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
-  const { settings, updateSettings } = useContext(ThemeContext);
+  const { settings, updateSettings } = useTheme();
   const systemColorScheme = useColorScheme();
   const isDark =
     settings.theme === 'dark' ||

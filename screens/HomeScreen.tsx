@@ -3,15 +3,13 @@
  * Displays received shared URL and allows saving articles
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  NativeModules,
-  NativeEventEmitter,
   ActivityIndicator,
   Alert,
   TextInput,
@@ -22,9 +20,6 @@ import { saveArticle, getArticleCount, updateArticleWithAiEnhancement } from '..
 import { enhanceArticleContent } from '../services/aiEnhancer';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
 import { useTheme } from '../context/ThemeContext';
-
-const { SharedIntentModule } = NativeModules;
-
 export default function HomeScreen({ navigation }: any) {
   const { getColors, getFontSize, settings } = useTheme();
   const currentColors = getColors();
@@ -35,7 +30,6 @@ export default function HomeScreen({ navigation }: any) {
   const [isSaved, setIsSaved] = useState(false);
   const [articleCount, setArticleCount] = useState(0);
   const [tags, setTags] = useState<string>('');
-  const eventEmitterSubscription = useRef<any>(null);
 
   // Note: Share intent listener moved to App.tsx for auto-save functionality
   // This screen now only handles manual URL input
@@ -75,7 +69,7 @@ export default function HomeScreen({ navigation }: any) {
       setManualUrl('');
       setIsSaved(false);
       return true;
-    } catch (error) {
+    } catch {
       Alert.alert('Invalid URL', 'Please enter a valid URL (e.g., https://example.com)');
       return false;
     }
@@ -123,7 +117,7 @@ export default function HomeScreen({ navigation }: any) {
 
       // Background AI enhancement (non-blocking)
       console.log('[HomeScreen] Starting background AI enhancement...');
-      enhanceArticleContent(article.title, article.content)
+      enhanceArticleContent(article.title, article.content, article.url)
         .then(async (enhanced) => {
           if (enhanced) {
             console.log('[HomeScreen] AI enhancement completed, updating article...');
@@ -134,7 +128,9 @@ export default function HomeScreen({ navigation }: any) {
               enhanced.suggestedTags,
               enhanced.category,
               enhanced.sentiment,
-              enhanced.readingTimeMinutes
+              enhanced.readingTimeMinutes,
+              enhanced.platform,
+              enhanced.platformColor
             );
             console.log('[HomeScreen] Article updated with AI enhancement');
           } else {

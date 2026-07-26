@@ -4,10 +4,9 @@
  */
 
 import axios from 'axios';
-import { Article, getSettings } from './database';
+import { Article } from './database';
 import { OPENAI_API_KEY, OPENAI_MODEL } from '@env';
 import { detectPlatformFromUrl, getVideoThumbnailUrl, PlatformType, PLATFORM_COLORS } from '../styles/platformColors';
-import { enhanceArticleContent } from './aiEnhancer';
 
 const JINA_API_URL = 'https://r.jina.ai/';
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
@@ -63,6 +62,13 @@ const cleanUrl = (url: string): string => {
   } catch {
     return url;
   }
+};
+
+const getUrlParts = (rawUrl: string): { hostname: string; pathParts: string[] } => {
+  const match = rawUrl.match(/^[a-z][a-z\d+\-.]*:\/\/([^/?#]+)([^?#]*)?/i);
+  const hostname = (match?.[1] || '').replace(/^www\./i, '');
+  const pathParts = (match?.[2] || '').split('/').filter(Boolean);
+  return { hostname, pathParts };
 };
 
 export interface ExtractedArticleData {
@@ -425,7 +431,7 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
       }
 
       // Build title from metadata or fallback
-      let title = metadata.title;
+      let title = metadata.title || '';
 
       // Check if title is unusable (login page, generic platform name, etc.)
       const titleLower = (title || '').toLowerCase().trim();
@@ -454,7 +460,7 @@ export const extractArticleFromUrl = async (url: string): Promise<ExtractedArtic
       }
 
       // Clean up description
-      let description = metadata.description;
+      let description = metadata.description || '';
       const descLower = (description || '').toLowerCase();
       if (!description || description.trim() === '' || descLower.includes('login') || descLower.includes('log in') || descLower.includes('sign up')) {
         description = `View this ${contentType.toLowerCase()} on ${platformName}`;
@@ -633,7 +639,7 @@ export const createArticle = (url: string, extractedData: ExtractedArticleData):
   // Make absolutely sure we never use the ID as title
   if (!finalTitle || finalTitle.trim() === '' || finalTitle === articleId || finalTitle.includes(articleId)) {
     console.warn('[ArticleExtractor] Title was invalid, using fallback');
-    finalTitle = 'Article from ' + new URL(url).hostname;
+    finalTitle = 'Article from ' + (getUrlParts(url).hostname || 'saved link');
   }
 
   // Detect platform from URL
@@ -672,24 +678,6 @@ export const createArticle = (url: string, extractedData: ExtractedArticleData):
 };
 
 /**
- * Filter out platform-based tags, keep only topic-based tags
- */
-const filterTopicTags = (tags: string[]): string[] => {
-  const platformNames = [
-    'youtube', 'instagram', 'tiktok', 'twitter', 'facebook', 'reddit',
-    'linkedin', 'snapchat', 'pinterest', 'chrome', 'safari', 'web',
-    'video', 'reel', 'post', 'tweet', 'article', 'link', 'content',
-    'social', 'media', 'platform', 'app', 'website', 'online'
-  ];
-
-  return tags.filter(tag => {
-    const lowerTag = tag.toLowerCase();
-    // Filter out platform names and generic terms
-    return !platformNames.some(platform => lowerTag.includes(platform));
-  });
-};
-
-/**
  * Extract and create article in one step (FAST - no AI enhancement)
  * AI enhancement should be done separately in the background
  */
@@ -714,7 +702,7 @@ export const extractAndCreateArticle = async (url: string): Promise<Article> => 
  * Returns the enhanced article data to be merged
  * Note: AI tagging feature has been removed
  */
-export const enhanceArticleInBackground = async (article: Article): Promise<Partial<Article> | null> => {
+export const enhanceArticleInBackground = async (_article: Article): Promise<Partial<Article> | null> => {
   // AI tagging feature removed
   return null;
 };
@@ -1137,8 +1125,7 @@ Return in JSON format:
  */
 const extractTitleFromUrl = (url: string): string => {
   try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/').filter(p => p);
+    const { hostname, pathParts } = getUrlParts(url);
 
     if (pathParts.length > 0) {
       const lastPart = pathParts[pathParts.length - 1];
@@ -1154,32 +1141,13 @@ const extractTitleFromUrl = (url: string): string => {
     }
 
     // Fallback to hostname (e.g., "x.com" becomes "X")
-    const hostname = urlObj.hostname
-      .replace('www.', '')
+    const hostTitle = hostname
       .split('.')[0]
       .toUpperCase();
-    return hostname || 'Article';
+    return hostTitle || 'Article';
   } catch {
     return 'Article';
   }
-};
-
-/**
- * Extract title from content (first meaningful sentence)
- */
-const extractTitleFromContent = (content: string): string => {
-  if (!content) return '';
-
-  // Get first sentence or first 50 chars, whichever is shorter
-  const sentences = content.split(/[.!?]+/);
-  const firstSentence = sentences[0]?.trim() || '';
-
-  if (firstSentence.length > 80) {
-    // If first sentence is too long, use first 70 chars
-    return firstSentence.substring(0, 70).trim() + '...';
-  }
-
-  return firstSentence || 'Article';
 };
 
 /**

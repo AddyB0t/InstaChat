@@ -20,14 +20,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Orange accent color matching NotiF
 const ACCENT_COLOR = '#F97316';
-const ACCENT_LIGHT = '#FDBA74';
 const ACCENT_DARK = '#EA580C';
 const BG_COLOR = '#000000';
-const BG_SECONDARY = '#0A0A0A';
 const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_SECONDARY = '#9CA3AF';
 

@@ -3,9 +3,8 @@
  * Displays received shared URL and allows saving articles
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
-  NativeModules,
   ActivityIndicator,
   Alert,
   ScrollView,
@@ -25,9 +24,6 @@ import { extractAndCreateArticle } from '../services/articleExtractor';
 import { saveArticle, getArticleCount, updateArticleWithAiEnhancement } from '../services/database';
 import { enhanceArticleContent } from '../services/aiEnhancer';
 import { useTheme } from '../context/ThemeContext';
-
-const { SharedIntentModule } = NativeModules;
-
 export default function HomeScreenGlueStack({ navigation }: any) {
   const { getColors } = useTheme();
   const currentColors = getColors();
@@ -71,7 +67,7 @@ export default function HomeScreenGlueStack({ navigation }: any) {
       setManualUrl('');
       setIsSaved(false);
       return true;
-    } catch (error) {
+    } catch {
       Alert.alert('Invalid URL', 'Please enter a valid URL (e.g., https://example.com)');
       return false;
     }
@@ -105,7 +101,7 @@ export default function HomeScreenGlueStack({ navigation }: any) {
       }, 1500);
 
       // Background AI enhancement
-      enhanceArticleContent(article.title, article.content)
+      enhanceArticleContent(article.title, article.content, article.url)
         .then(async (enhanced) => {
           if (enhanced) {
             await updateArticleWithAiEnhancement(
@@ -115,7 +111,9 @@ export default function HomeScreenGlueStack({ navigation }: any) {
               enhanced.suggestedTags,
               enhanced.category,
               enhanced.sentiment,
-              enhanced.readingTimeMinutes
+              enhanced.readingTimeMinutes,
+              enhanced.platform,
+              enhanced.platformColor
             );
           }
         })

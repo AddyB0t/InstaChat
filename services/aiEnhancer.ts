@@ -7,7 +7,7 @@
 import axios from 'axios';
 import { OPENAI_API_KEY as ENV_API_KEY, OPENAI_MODEL } from '@env';
 import { getOpenAiApiKey } from './keychainService';
-import { Article, ExtractedArticleData } from './database';
+import { Article } from './database';
 import { PlatformType, detectPlatformFromUrl, getPlatformConfig } from '../styles/platformColors';
 
 interface EnhancedContent {
@@ -19,14 +19,6 @@ interface EnhancedContent {
   readingTimeMinutes: number;
   platform: PlatformType;
   platformColor: string;
-}
-
-interface ExtractedArticleDataWithEnhancement extends ExtractedArticleData {
-  aiEnhanced?: boolean;
-  aiSummary?: string;
-  aiKeyPoints?: string[];
-  aiTags?: string[];
-  aiCategory?: string;
 }
 
 /**
@@ -74,7 +66,7 @@ Please provide a JSON response with EXACTLY this structure (no markdown, no code
   "category": "Technology|Science|Business|Health|Politics|Entertainment|Sports|Education|Other",
   "sentiment": "positive|neutral|negative",
   "readingTimeMinutes": 3,
-  "platform": "twitter|facebook|instagram|youtube|chrome|safari|other"
+  "platform": "twitter|facebook|instagram|youtube|web|other"
 }
 
 IMPORTANT GUIDELINES:
@@ -84,7 +76,7 @@ IMPORTANT GUIDELINES:
 - Category: Pick the SINGLE most relevant category from the list provided.
 - Sentiment: Analyze the overall tone (positive=encouraging/optimistic, neutral=factual, negative=critical/cautionary).
 - Reading Time: Estimate in minutes based on content length and complexity.
-- Platform: Detect the content source platform from URL and content. Use "twitter" for X/Twitter, "chrome" or "safari" for web articles, or "other" if uncertain.
+- Platform: Detect the content source platform from URL and content. Use "twitter" for X/Twitter, "web" for browser articles, or "other" if uncertain.
 
 Return ONLY valid JSON. No additional text.`;
 };
@@ -115,7 +107,7 @@ const parseAiResponse = (responseText: string, url: string): EnhancedContent | n
     // If URL detection returns 'other', try to use AI's platform detection
     if (detectedPlatform === 'other' && parsed.platform) {
       const aiPlatform = String(parsed.platform).toLowerCase() as PlatformType;
-      const validPlatforms: PlatformType[] = ['twitter', 'facebook', 'instagram', 'youtube', 'chrome', 'safari', 'other'];
+      const validPlatforms: PlatformType[] = ['twitter', 'facebook', 'instagram', 'youtube', 'web', 'other'];
       if (validPlatforms.includes(aiPlatform)) {
         detectedPlatform = aiPlatform;
       }

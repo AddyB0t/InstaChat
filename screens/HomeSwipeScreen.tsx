@@ -4,7 +4,7 @@
  * Momentum-style aesthetic with minimal UI and smooth animations
  */
 
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { Article, getAllArticles, updateArticle } from '../services/database';
 import { SwipeCardNew } from '../components/SwipeCardNew';
 import { BundleIcon } from '../components/BundleIcon';
-import { ThemeContext } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   addArticleToBundle,
   getBundleArticleCount,
@@ -37,10 +37,8 @@ export const HomeSwipeScreen: React.FC<HomeSwipeScreenProps> = ({ navigation }) 
   const [loading, setLoading] = useState(true);
   const [bundleCount, setBundleCount] = useState(0);
   const [bundleMode, setBundleMode] = useState(false);
-  const [bundleArticleIds, setBundleArticleIds] = useState<string[]>([]);
-
   const systemColorScheme = useColorScheme();
-  const { settings } = useContext(ThemeContext);
+  const { settings } = useTheme();
 
   const isDark =
     settings.theme === 'dark' ||
@@ -49,7 +47,6 @@ export const HomeSwipeScreen: React.FC<HomeSwipeScreenProps> = ({ navigation }) 
   // Get current date for Momentum-style header
   const today = new Date();
   const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
-  const monthDay = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
 
   // Load articles
   const loadArticles = async () => {
@@ -67,11 +64,7 @@ export const HomeSwipeScreen: React.FC<HomeSwipeScreenProps> = ({ navigation }) 
       const count = await getBundleArticleCount();
       setBundleCount(count);
 
-      // Get bundle article IDs if in bundle mode
-      const bundle = await getCurrentBundle();
-      if (bundle) {
-        setBundleArticleIds(bundle.articleIds);
-      }
+      await getCurrentBundle();
     } catch (error) {
       console.error('[HomeSwipeScreen] Error loading articles:', error);
       Alert.alert('Error', 'Failed to load articles');
@@ -110,7 +103,6 @@ export const HomeSwipeScreen: React.FC<HomeSwipeScreenProps> = ({ navigation }) 
 
       setArticles(bundleArticles);
       setCurrentIndex(0);
-      setBundleArticleIds(bundle.articleIds);
     } catch (error) {
       console.error('[HomeSwipeScreen] Error loading bundle articles:', error);
     }

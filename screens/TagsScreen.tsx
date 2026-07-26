@@ -3,7 +3,7 @@
  * Manage article tags for categorization
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -49,7 +49,7 @@ const TagsScreen = () => {
       setNewTagName('');
       setShowNewTag(false);
       await loadTags();
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to create tag');
     }
   };

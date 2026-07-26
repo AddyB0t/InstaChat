@@ -18,14 +18,12 @@ import {
   Alert,
   Modal,
   Platform,
-  DeviceEventEmitter,
   ScrollView,
   KeyboardAvoidingView,
   Share,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -34,7 +32,6 @@ import {
   getAllArticles,
   deleteArticle,
   updateArticle,
-  getBookmarkedArticles,
   getFavoriteArticles,
   getAllFolders,
   getArticlesByFolder,
@@ -49,7 +46,8 @@ import SearchModal from '../components/SearchModal';
 import PremiumModal from '../components/PremiumModal';
 import OnboardingTutorial from '../components/OnboardingTutorial';
 import { wp, hp, fp, ms, screenWidth } from '../utils/responsive';
-import { isVideoPlatform, getPlatformConfig, PlatformType } from '../styles/platformColors';
+import { getPlatformConfig, PlatformType } from '../styles/platformColors';
+import { addArticlesChangedListener, emitArticlesChanged } from '../services/articleEvents';
 
 type ViewMode = 'stacks' | 'grid' | 'custom';
 type ReadFilter = 'all' | 'read' | 'unread';
@@ -72,12 +70,11 @@ export default function NotifHomeScreen({ navigation }: any) {
   const [cardResetKey, setCardResetKey] = useState(0); // Used to force card remount on single card skip
   const [selectedView, setSelectedView] = useState<ViewMode>('stacks');
   const [loading, setLoading] = useState(true);
-  const [swipeHistory, setSwipeHistory] = useState<number[]>([]);
+  const [swipeHistory, setSwipeHistory] = useState<string[]>([]);
   const [showAddLinkModal, setShowAddLinkModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumArticleCount, setPremiumArticleCount] = useState(0);
-  const [bookmarkedArticles, setBookmarkedArticles] = useState<Article[]>([]); // Priority articles (isBookmarked)
   const [favoriteArticles, setFavoriteArticles] = useState<Article[]>([]); // Starred articles (isFavorite)
   const [showBookmarksFolder, setShowBookmarksFolder] = useState(false);
 
@@ -108,6 +105,8 @@ export default function NotifHomeScreen({ navigation }: any) {
   const [showHomeFolderPicker, setShowHomeFolderPicker] = useState(false);
   const [articleForFolder, setArticleForFolder] = useState<Article | null>(null);
   const [homeFolderName, setHomeFolderName] = useState('');
+  const [homeFolderSearchQuery, setHomeFolderSearchQuery] = useState('');
+  const [expandedNoteArticle, setExpandedNoteArticle] = useState<Article | null>(null);
 
   // Onboarding tutorial state
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -152,10 +151,6 @@ export default function NotifHomeScreen({ navigation }: any) {
       setPriorityArticles(priority);
       setCurrentIndex(0);
 
-      // Load bookmarked articles for Priority badge count
-      const bookmarked = await getBookmarkedArticles();
-      setBookmarkedArticles(bookmarked);
-
       // Load favorite articles for Favorites folder
       const favorites = await getFavoriteArticles();
       setFavoriteArticles(favorites);
@@ -178,7 +173,7 @@ export default function NotifHomeScreen({ navigation }: any) {
 
   // Listen for refresh event from share intent
   useEffect(() => {
-    const subscription = DeviceEventEmitter.addListener('refreshArticles', () => {
+    const subscription = addArticlesChangedListener(() => {
       console.log('[NotifHomeScreen] Received refresh event');
       loadArticles();
     });
@@ -229,7 +224,7 @@ export default function NotifHomeScreen({ navigation }: any) {
 
   const visibleFolderCards = getVisibleFolderCards();
 
-  const handleSwipeLeft = async (articleId: number) => {
+  const handleSwipeLeft = async (articleId: string) => {
     // Skip - cycle to bottom of stack
     setSwipeHistory(prev => [...prev, articleId]);
 
@@ -241,7 +236,7 @@ export default function NotifHomeScreen({ navigation }: any) {
     }
   };
 
-  const handleSwipeRight = async (articleId: number) => {
+  const handleSwipeRight = async (articleId: string) => {
     try {
       // Mark as priority (bookmarked)
       await updateArticle(articleId, { isBookmarked: true });
@@ -265,7 +260,7 @@ export default function NotifHomeScreen({ navigation }: any) {
     }
   };
 
-  const handleDelete = async (articleId: number) => {
+  const handleDelete = async (articleId: string) => {
     try {
       await deleteArticle(articleId);
       // Remove from all article states to sync across views
@@ -387,7 +382,7 @@ export default function NotifHomeScreen({ navigation }: any) {
   };
 
   // Handle folder card swipe left (skip to next)
-  const handleFolderSwipeLeft = (articleId: number) => {
+  const handleFolderSwipeLeft = (_articleId: string) => {
     // If only one card, force re-render with reset key (same as home screen)
     if (folderArticles.length === 1) {
       setFolderCardResetKey(prev => prev + 1);
@@ -398,8 +393,8 @@ export default function NotifHomeScreen({ navigation }: any) {
   };
 
   // Handle folder card swipe right (open article)
-  const handleFolderSwipeRight = (articleId: number) => {
-    const article = folderArticles.find(a => a.id === articleId || a.id === String(articleId));
+  const handleFolderSwipeRight = (articleId: string) => {
+    const article = folderArticles.find(a => a.id === articleId);
     if (article) {
       openArticleUrl(article);
     }
@@ -509,6 +504,7 @@ export default function NotifHomeScreen({ navigation }: any) {
       setFolderToEdit(null);
       setNewFolderName('');
     } catch (error) {
+      console.error('[NotifHomeScreen] Error renaming folder:', error);
       Alert.alert('Error', 'Failed to rename folder.');
     }
   };
@@ -517,6 +513,7 @@ export default function NotifHomeScreen({ navigation }: any) {
   const handleAddToFolderFromHome = (article: Article) => {
     setArticleForFolder(article);
     setHomeFolderName('');
+    setHomeFolderSearchQuery('');
     setShowHomeFolderPicker(true);
   };
 
@@ -529,11 +526,13 @@ export default function NotifHomeScreen({ navigation }: any) {
       // Refresh folders list to update counts
       const allFolders = await getAllFolders();
       setFolders(allFolders);
-      DeviceEventEmitter.emit('refreshArticles');
+      emitArticlesChanged();
       setShowHomeFolderPicker(false);
       setArticleForFolder(null);
+      setHomeFolderSearchQuery('');
       Alert.alert('Added to Folder', `Article added to "${folder.name}".`);
     } catch (error) {
+      console.error('[NotifHomeScreen] Error adding article to folder:', error);
       Alert.alert('Error', 'Failed to add article to folder.');
     }
   };
@@ -549,12 +548,14 @@ export default function NotifHomeScreen({ navigation }: any) {
       // Refresh folders list
       const allFolders = await getAllFolders();
       setFolders(allFolders);
-      DeviceEventEmitter.emit('refreshArticles');
+      emitArticlesChanged();
       setShowHomeFolderPicker(false);
       setArticleForFolder(null);
       setHomeFolderName('');
+      setHomeFolderSearchQuery('');
       Alert.alert('Folder Created', `Article added to new folder "${trimmedName}".`);
     } catch (error) {
+      console.error('[NotifHomeScreen] Error creating folder from home:', error);
       Alert.alert('Error', 'Failed to create folder.');
     }
   };
@@ -567,6 +568,9 @@ export default function NotifHomeScreen({ navigation }: any) {
   };
 
   const filteredFolders = getFilteredFolders();
+  const filteredHomeFolders = homeFolderSearchQuery.trim()
+    ? folders.filter(f => f.name.toLowerCase().includes(homeFolderSearchQuery.trim().toLowerCase()))
+    : folders;
 
   const handleTagsSaved = async () => {
     // Refresh articles after saving tags
@@ -890,7 +894,13 @@ export default function NotifHomeScreen({ navigation }: any) {
             </View>
 
             {/* Description Preview Box - below card */}
-            <View style={[styles.notesPreviewBox, { backgroundColor: isDark ? 'rgba(80, 80, 80, 0.6)' : colors.background.secondary }]}>
+            <TouchableOpacity
+              style={[styles.notesPreviewBox, { backgroundColor: isDark ? 'rgba(80, 80, 80, 0.6)' : colors.background.secondary }]}
+              activeOpacity={visibleCards[0]?.notes ? 0.75 : 1}
+              delayLongPress={250}
+              onPress={() => visibleCards[0]?.notes && setExpandedNoteArticle(visibleCards[0])}
+              onLongPress={() => visibleCards[0]?.notes && setExpandedNoteArticle(visibleCards[0])}
+            >
               {visibleCards[0]?.notes ? (
                 <Text style={[styles.notesPreviewText, { color: colors.text.tertiary }]} numberOfLines={2}>
                   {visibleCards[0].notes}
@@ -900,7 +910,7 @@ export default function NotifHomeScreen({ navigation }: any) {
                   Tap flip button to add description
                 </Text>
               )}
-            </View>
+            </TouchableOpacity>
           </View>
         )
       ) : selectedView === 'grid' ? (
@@ -1698,6 +1708,38 @@ export default function NotifHomeScreen({ navigation }: any) {
         isDarkMode={isDark}
       />
 
+      <Modal
+        visible={!!expandedNoteArticle}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setExpandedNoteArticle(null)}
+      >
+        <TouchableOpacity
+          style={styles.noteReaderOverlay}
+          activeOpacity={1}
+          onPress={() => setExpandedNoteArticle(null)}
+        >
+          <View
+            style={[styles.noteReaderCard, { backgroundColor: colors.background.primary }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={[styles.noteReaderTitle, { color: colors.text.primary }]}>
+              Description
+            </Text>
+            {expandedNoteArticle?.title && (
+              <Text style={[styles.noteReaderArticleTitle, { color: colors.text.secondary }]} numberOfLines={2}>
+                {expandedNoteArticle.title}
+              </Text>
+            )}
+            <ScrollView style={styles.noteReaderScroll} showsVerticalScrollIndicator={true}>
+              <Text style={[styles.noteReaderText, { color: colors.text.primary }]}>
+                {expandedNoteArticle?.notes}
+              </Text>
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Home Page Folder Picker Modal */}
       <Modal
         visible={showHomeFolderPicker}
@@ -1707,6 +1749,7 @@ export default function NotifHomeScreen({ navigation }: any) {
           setShowHomeFolderPicker(false);
           setArticleForFolder(null);
           setHomeFolderName('');
+          setHomeFolderSearchQuery('');
         }}
       >
         <KeyboardAvoidingView
@@ -1724,11 +1767,29 @@ export default function NotifHomeScreen({ navigation }: any) {
               </Text>
             </View>
 
+            {folders.length > 0 && (
+              <View style={[styles.homeFolderSearchBar, { backgroundColor: colors.background.secondary }]}>
+                <Icon name="search" size={18} color={colors.text.tertiary} />
+                <TextInput
+                  style={[styles.homeFolderSearchInput, { color: colors.text.primary }]}
+                  placeholder="Search folders..."
+                  placeholderTextColor={colors.text.tertiary}
+                  value={homeFolderSearchQuery}
+                  onChangeText={setHomeFolderSearchQuery}
+                />
+                {homeFolderSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setHomeFolderSearchQuery('')}>
+                    <Icon name="close-circle" size={18} color={colors.text.tertiary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
             {/* Existing folders list */}
             {folders.length > 0 && (
               <ScrollView style={styles.homeFolderScrollView} showsVerticalScrollIndicator={true}>
                 <View style={styles.homeFolderList}>
-                  {folders.map((folder) => (
+                  {filteredHomeFolders.map((folder) => (
                     <TouchableOpacity
                       key={folder.id}
                       style={[styles.homeFolderItem, { backgroundColor: colors.background.secondary }]}
@@ -1746,6 +1807,13 @@ export default function NotifHomeScreen({ navigation }: any) {
                       <Icon name="chevron-forward" size={18} color={colors.text.tertiary} />
                     </TouchableOpacity>
                   ))}
+                  {filteredHomeFolders.length === 0 && (
+                    <View style={styles.homeFolderEmptySearch}>
+                      <Text style={[styles.homeFolderEmptySearchText, { color: colors.text.tertiary }]}>
+                        No folders found
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </ScrollView>
             )}
@@ -1778,6 +1846,7 @@ export default function NotifHomeScreen({ navigation }: any) {
                 setShowHomeFolderPicker(false);
                 setArticleForFolder(null);
                 setHomeFolderName('');
+                setHomeFolderSearchQuery('');
               }}
             >
               <Text style={[styles.homeFolderCancelText, { color: colors.text.secondary }]}>
@@ -1964,6 +2033,37 @@ const styles = StyleSheet.create({
     padding: wp(12),
     borderRadius: ms(12),
     opacity: 0.8,
+  },
+  noteReaderOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: wp(20),
+  },
+  noteReaderCard: {
+    width: '100%',
+    maxWidth: wp(360),
+    maxHeight: '70%',
+    borderRadius: ms(20),
+    padding: wp(20),
+  },
+  noteReaderTitle: {
+    fontSize: fp(18),
+    fontWeight: '700',
+    marginBottom: hp(8),
+  },
+  noteReaderArticleTitle: {
+    fontSize: fp(13),
+    lineHeight: fp(18),
+    marginBottom: hp(14),
+  },
+  noteReaderScroll: {
+    maxHeight: hp(360),
+  },
+  noteReaderText: {
+    fontSize: fp(15),
+    lineHeight: fp(24),
   },
   notesPreviewHeader: {
     flexDirection: 'row',
@@ -2841,6 +2941,20 @@ const styles = StyleSheet.create({
     fontSize: fp(14),
     textAlign: 'center',
   },
+  homeFolderSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: wp(12),
+    paddingVertical: hp(10),
+    borderRadius: ms(12),
+    gap: wp(8),
+    marginBottom: hp(12),
+  },
+  homeFolderSearchInput: {
+    flex: 1,
+    fontSize: fp(15),
+    padding: 0,
+  },
   homeFolderScrollView: {
     maxHeight: hp(250),
     marginBottom: hp(16),
@@ -2865,6 +2979,14 @@ const styles = StyleSheet.create({
   homeFolderItemCount: {
     fontSize: fp(12),
     marginTop: hp(2),
+  },
+  homeFolderEmptySearch: {
+    paddingVertical: hp(20),
+    alignItems: 'center',
+  },
+  homeFolderEmptySearchText: {
+    fontSize: fp(14),
+    fontWeight: '500',
   },
   homeFolderInputContainer: {
     flexDirection: 'row',

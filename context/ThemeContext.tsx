@@ -92,7 +92,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return themeColors.light;
     } else if (settings.theme === 'auto') {
       // Use system theme
-      const colorScheme = Appearance.getColorScheme();
+      const colorScheme = systemTheme ?? Appearance.getColorScheme();
       return colorScheme === 'dark' ? themeColors.dark : themeColors.light;
     }
     return themeColors.dark;

@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, createContext, useState, useContext } from 'react';
-import { StatusBar, NativeModules, Alert, ToastAndroid, View, ActivityIndicator, Modal, Text, StyleSheet, Animated, DeviceEventEmitter, AppState, Linking } from 'react-native';
+import { StatusBar, NativeModules, Alert, View, ActivityIndicator, Modal, Text, StyleSheet, Animated, AppState, Linking, useColorScheme } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GluestackUIProvider } from '@gluestack-ui/themed';
@@ -18,6 +18,11 @@ import { saveArticle, updateArticle } from './services/database';
 import { canSaveArticle } from './services/subscriptionService';
 import OnboardingScreen from './screens/OnboardingScreen';
 import PremiumModal from './components/PremiumModal';
+import ErrorBoundary from './components/ErrorBoundary';
+import FeedbackToast from './components/FeedbackToast';
+import { showTransientMessage } from './services/feedback';
+import { logInfo } from './services/logger';
+import { emitArticlesChanged } from './services/articleEvents';
 
 const ONBOARDING_KEY = '@instachat_onboarding_complete';
 const APP_VERSION_KEY = '@instachat_app_version';
@@ -64,7 +69,7 @@ function AppContent() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumArticleCount, setPremiumArticleCount] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const mainFadeAnim = useRef(new Animated.Value(0)).current;
+  const mainFadeAnim = useRef(new Animated.Value(1)).current;
   const navigationRef = useRef<any>(null);
 
   // Track URLs being processed to prevent duplicates from race conditions
@@ -80,6 +85,13 @@ function AppContent() {
     subscriptionLoadingRef.current = isSubscriptionLoading;
     isPremiumRef.current = isPremium;
   }, [isSubscriptionLoading, isPremium]);
+
+  useEffect(() => {
+    logInfo('App', 'AppContent mounted', {
+      hasSharedIntentModule: Boolean(SharedIntentModule),
+      isSubscriptionLoading,
+    });
+  }, [isSubscriptionLoading]);
 
   // Check for app update and clear caches if needed
   useEffect(() => {
@@ -128,6 +140,7 @@ function AppContent() {
           useNativeDriver: true,
         }),
       ]).start(() => {
+        mainFadeAnim.setValue(0);
         setShowOnboarding(false);
         // Fade in main app
         Animated.timing(mainFadeAnim, {
@@ -149,7 +162,7 @@ function AppContent() {
     if (showOnboarding === false && !isTransitioning) {
       mainFadeAnim.setValue(1);
     }
-  }, [showOnboarding]);
+  }, [showOnboarding, isTransitioning, mainFadeAnim]);
 
   // Shared function to handle saving article from URL
   const handleSharedUrl = async (url: string) => {
@@ -204,11 +217,11 @@ function AppContent() {
       recentlyProcessedRef.current.set(normalizedUrl, Date.now());
 
       // Show toast and navigate immediately
-      ToastAndroid.show('Article saved!', ToastAndroid.SHORT);
+      showTransientMessage('Article saved!');
       setIsSaving(false);
 
       // Emit event to refresh Home screen
-      DeviceEventEmitter.emit('refreshArticles');
+      emitArticlesChanged();
 
       if (navigationRef.current) {
         navigationRef.current.navigate('Main', { screen: 'Home' });
@@ -220,7 +233,7 @@ function AppContent() {
           try {
             await updateArticle(article.id, updates);
             console.log('[App] Article AI-enhanced in background:', article.id);
-            ToastAndroid.show('AI tags added!', ToastAndroid.SHORT);
+            showTransientMessage('AI tags added!');
           } catch (updateError) {
             console.log('[App] Failed to update with AI data:', updateError);
           }
@@ -238,8 +251,8 @@ function AppContent() {
       if (errorMessage.includes('already saved')) {
         // Also mark as recently processed for duplicates
         recentlyProcessedRef.current.set(normalizedUrl, Date.now());
-        ToastAndroid.show('Already in your library!', ToastAndroid.SHORT);
-        DeviceEventEmitter.emit('refreshArticles');
+        showTransientMessage('Already in your library!');
+        emitArticlesChanged();
         if (navigationRef.current) {
           navigationRef.current.navigate('Main', { screen: 'Home' });
         }
@@ -389,6 +402,7 @@ function AppContent() {
           colors={getThemedColors(settings.theme === 'dark')}
           articleCount={premiumArticleCount}
         />
+        <FeedbackToast />
       </SafeAreaProvider>
     </ShareContext.Provider>
   );
@@ -397,10 +411,11 @@ function AppContent() {
 // Wrapper to connect theme to GlueStack
 function GluestackWrapper() {
   const { settings } = useTheme();
+  const systemColorScheme = useColorScheme();
 
   // Map theme setting to GlueStack colorMode
   const colorMode = settings.theme === 'auto'
-    ? 'system'
+    ? (systemColorScheme === 'dark' ? 'dark' : 'light')
     : settings.theme;
 
   return (
@@ -412,11 +427,13 @@ function GluestackWrapper() {
 
 function App() {
   return (
-    <SubscriptionProvider>
-      <ThemeProvider>
-        <GluestackWrapper />
-      </ThemeProvider>
-    </SubscriptionProvider>
+    <ErrorBoundary>
+      <SubscriptionProvider>
+        <ThemeProvider>
+          <GluestackWrapper />
+        </ThemeProvider>
+      </SubscriptionProvider>
+    </ErrorBoundary>
   );
 }
 

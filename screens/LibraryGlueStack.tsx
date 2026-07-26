@@ -20,7 +20,6 @@ import {
   Input,
   InputField,
   Pressable,
-  ScrollView,
 } from '@gluestack-ui/themed';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAllArticles, deleteArticle, updateArticle, Article } from '../services/database';

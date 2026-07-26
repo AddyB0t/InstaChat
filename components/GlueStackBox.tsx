@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, ViewStyle } from 'react-native';
+import { StyleProp, View, ViewStyle } from 'react-native';
 import { useGlueStackTheme } from '../context/GlueStackThemeContext';
 
 interface GlueStackBoxProps {
   children?: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   bg?: 'primary' | 'surface' | 'background' | 'success' | 'error' | 'warning' | 'info';
   p?: number; // padding
   px?: number; // padding horizontal
@@ -12,6 +12,7 @@ interface GlueStackBoxProps {
   m?: number; // margin
   mx?: number; // margin horizontal
   my?: number; // margin vertical
+  mb?: number; // margin bottom
   rounded?: 'sm' | 'md' | 'lg' | 'full';
   flexDirection?: 'row' | 'column';
   alignItems?: 'flex-start' | 'center' | 'flex-end' | 'stretch';
@@ -20,6 +21,8 @@ interface GlueStackBoxProps {
   flex?: number;
   borderRadius?: number;
   borderWidth?: number;
+  borderTopWidth?: number;
+  borderBottomWidth?: number;
   borderColor?: string;
 }
 
@@ -33,6 +36,7 @@ export const GlueStackBox: React.FC<GlueStackBoxProps> = ({
   m,
   mx,
   my,
+  mb,
   rounded,
   flexDirection = 'column',
   alignItems,
@@ -41,6 +45,8 @@ export const GlueStackBox: React.FC<GlueStackBoxProps> = ({
   flex,
   borderRadius,
   borderWidth,
+  borderTopWidth,
+  borderBottomWidth,
   borderColor,
 }) => {
   const { theme } = useGlueStackTheme();
@@ -90,6 +96,7 @@ export const GlueStackBox: React.FC<GlueStackBoxProps> = ({
     margin: m,
     marginHorizontal: mx,
     marginVertical: my,
+    marginBottom: mb,
     borderRadius: borderRadius || getBorderRadius(rounded),
     flexDirection,
     alignItems,
@@ -97,6 +104,8 @@ export const GlueStackBox: React.FC<GlueStackBoxProps> = ({
     gap,
     flex,
     borderWidth,
+    borderTopWidth,
+    borderBottomWidth,
     borderColor,
   };
 

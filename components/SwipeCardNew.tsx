@@ -13,7 +13,6 @@ import {
   PanResponder,
   Dimensions,
   TouchableOpacity,
-  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Article } from '../services/database';
@@ -54,7 +53,7 @@ export const SwipeCardNew: React.FC<SwipeCardNewProps> = ({
     pan.flattenOffset();
     opacity.setValue(1);
     scale.setValue(1);
-  }, [article.id]);
+  }, [article.id, pan, opacity, scale]);
 
   const panResponder = useRef(
     PanResponder.create({

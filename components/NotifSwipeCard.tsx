@@ -3,7 +3,7 @@
  * Tinder-like swipe card with glow effect and stacked positioning
  */
 
-import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import {
   PanResponder,
   Alert,
   Share,
-  Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, {
@@ -26,15 +25,13 @@ import Animated, {
   withTiming,
   interpolate,
   runOnJS,
-  Easing,
   Extrapolation,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, Pressable } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Article, updateArticle } from '../services/database';
 import { ThemeColors } from '../styles/notifTheme';
-import { ThemeContext } from '../context/ThemeContext';
-import { PlatformType, getPlatformConfig, getVideoThumbnailUrl, isVideoPlatform } from '../styles/platformColors';
+import { PlatformType, getPlatformConfig, isVideoPlatform } from '../styles/platformColors';
 import { wp, hp, fp, ms, screenWidth, widthPercent } from '../utils/responsive';
 import VideoPreviewModal from './VideoPreviewModal';
 import Haptic from '../services/hapticService';
@@ -45,13 +42,13 @@ const SWIPE_THRESHOLD = screenWidth * 0.25;
 
 interface NotifSwipeCardProps {
   article: Article;
-  onSwipeLeft: (articleId: number) => void;
-  onSwipeRight: (articleId: number) => void;
-  onDelete?: (articleId: number) => void;
+  onSwipeLeft: (articleId: string) => void;
+  onSwipeRight: (articleId: string) => void;
+  onDelete?: (articleId: string) => void;
   onView?: (article: Article) => void;
   onTagsSaved?: () => void;
-  onToggleReadStatus?: (articleId: number) => void;
-  onMarkAsRead?: (articleId: number) => void;
+  onToggleReadStatus?: (articleId: string) => void;
+  onMarkAsRead?: (articleId: string) => void;
   onAddToFolder?: (article: Article) => void;
   onAddStackToFolder?: () => void;
   onNotesUpdated?: () => void;
@@ -71,7 +68,6 @@ export default function NotifSwipeCard({
   onDelete,
   onView,
   onTagsSaved,
-  onToggleReadStatus,
   onMarkAsRead,
   onAddToFolder,
   onAddStackToFolder,
@@ -84,8 +80,6 @@ export default function NotifSwipeCard({
   stackIndex = 0,
   isPriorityView = false,
 }: NotifSwipeCardProps) {
-  const { settings } = useContext(ThemeContext);
-
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const cardScale = useSharedValue(stackIndex === 0 ? 0.95 : 1);
@@ -263,7 +257,7 @@ export default function NotifSwipeCard({
       rotateY.value = 0;
       scale.value = 1;
     }
-  }, [stackIndex]);
+  }, [stackIndex, cardOpacity, cardScale, rotateY, scale, translateX, translateY]);
 
   // Entry animation for top card
   useEffect(() => {
@@ -271,7 +265,7 @@ export default function NotifSwipeCard({
       cardScale.value = withSpring(1, { damping: 15, stiffness: 150 });
       cardOpacity.value = withTiming(1, { duration: 200 });
     }
-  }, [stackIndex, isExiting]);
+  }, [stackIndex, isExiting, cardOpacity, cardScale]);
 
   const handleLongPress = () => {
     if (onDelete || onView) {
@@ -433,13 +427,8 @@ export default function NotifSwipeCard({
     };
   });
 
-  // Flip animation - scaleX for Android, no transform for iOS (uses opacity only)
+  // Flip animation shared by iOS and Android.
   const flipAnimatedStyle = useAnimatedStyle(() => {
-    if (Platform.OS === 'ios') {
-      // iOS: just use opacity crossfade, no transform
-      return {};
-    }
-    // Android: use scaleX for flip effect
     const scaleXValue = interpolate(
       rotateY.value,
       [0, 90, 180],
@@ -496,10 +485,6 @@ export default function NotifSwipeCard({
     const opacity = interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 1]);
     return { opacity };
   });
-
-  // Get video thumbnail if applicable
-  const videoThumbnail = article.url ? getVideoThumbnailUrl(article.url, platform) : null;
-  const hasVideoThumbnail = videoThumbnail && isVideoPlatform(platform);
 
   // Time since saved
   const getTimeSince = () => {

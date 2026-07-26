@@ -3,7 +3,7 @@
  * Allows users to sort and filter articles by source/platform
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,

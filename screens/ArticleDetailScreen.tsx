@@ -4,7 +4,7 @@
  * Momentum-style aesthetic with gradient background and clean cards
  */
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,16 +17,17 @@ import {
   Image,
   StatusBar,
   useColorScheme,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { Article, getArticle, deleteArticle, updateArticle } from '../services/database';
 import { formatDate } from '../services/articleExtractor';
-import { ThemeContext } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import { wp, hp, fp, ms } from '../utils/responsive';
 
 export default function ArticleDetailScreen({ route, navigation }: any) {
-  const { settings } = useContext(ThemeContext);
+  const { settings } = useTheme();
   const systemColorScheme = useColorScheme();
 
   const isDark =
@@ -38,16 +39,7 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
   const [article, setArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (articleId) {
-      loadArticle();
-    } else {
-      Alert.alert('Error', 'Article ID not provided');
-      navigation.goBack();
-    }
-  }, [articleId]);
-
-  const loadArticle = async () => {
+  const loadArticle = useCallback(async () => {
     setIsLoading(true);
     try {
       const fetchedArticle = await getArticle(articleId);
@@ -63,7 +55,16 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [articleId, navigation]);
+
+  useEffect(() => {
+    if (articleId) {
+      loadArticle();
+    } else {
+      Alert.alert('Error', 'Article ID not provided');
+      navigation.goBack();
+    }
+  }, [articleId, loadArticle, navigation]);
 
   const handleOpenInBrowser = async () => {
     if (!article?.url) return;
@@ -139,12 +140,18 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
     );
   };
 
-  const handleCopyUrl = () => {
+  const handleCopyUrl = async () => {
     if (!article?.url) return;
 
-    // Note: To use clipboard, you would need to install react-native-clipboard
-    // For now, we'll just show a success message
-    Alert.alert('Success', 'URL copied to clipboard (requires clipboard library)');
+    try {
+      await Share.share({
+        message: article.url,
+        url: article.url,
+      });
+    } catch (error) {
+      console.error('[ArticleDetailScreen] Error sharing URL:', error);
+      Alert.alert('Error', 'Failed to share URL');
+    }
   };
 
   if (isLoading) {
@@ -330,8 +337,8 @@ export default function ArticleDetailScreen({ route, navigation }: any) {
                 onPress={handleCopyUrl}
                 activeOpacity={0.7}
               >
-                <Text style={styles.actionButtonEmoji}>📋</Text>
-                <Text style={styles.actionButtonText}>Copy</Text>
+                <Text style={styles.actionButtonEmoji}>↗</Text>
+                <Text style={styles.actionButtonText}>Share</Text>
               </TouchableOpacity>
             </View>
 

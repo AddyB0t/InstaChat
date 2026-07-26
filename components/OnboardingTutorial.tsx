@@ -9,10 +9,8 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import LinearGradient from 'react-native-linear-gradient';
 import { wp, hp, fp, ms, screenWidth } from '../utils/responsive';
 import { ThemeColors } from '../styles/notifTheme';
 

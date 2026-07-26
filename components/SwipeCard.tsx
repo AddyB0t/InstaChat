@@ -39,7 +39,7 @@ export const SwipeCard = ({ article, onSwipeLeft, onSwipeRight, onTap }: SwipeCa
           })(event, { dx, dy });
         }
       },
-      onPanResponderRelease: (event: GestureResponderEvent, { dx }: PanResponderGestureState) => {
+      onPanResponderRelease: (event: GestureResponderEvent, { dx, dy }: PanResponderGestureState) => {
         const swipeThreshold = 100;
 
         if (dx > swipeThreshold) {
@@ -61,6 +61,10 @@ export const SwipeCard = ({ article, onSwipeLeft, onSwipeRight, onTap }: SwipeCa
             onSwipeLeft();
           });
         } else {
+          if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+            onTap();
+          }
+
           // Reset to center
           Animated.spring(pan, {
             toValue: { x: 0, y: 0 },

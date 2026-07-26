@@ -34,7 +34,7 @@ export const BundleIcon: React.FC<BundleIconProps> = ({ count, onPress, visible 
         friction: 5,
       }).start();
     }
-  }, [visible, count]);
+  }, [visible, count, scaleAnim]);
 
   useEffect(() => {
     if (count > 0) {
@@ -52,7 +52,7 @@ export const BundleIcon: React.FC<BundleIconProps> = ({ count, onPress, visible 
         }),
       ]).start();
     }
-  }, [count]);
+  }, [count, bounceAnim]);
 
   const scale = scaleAnim.interpolate({
     inputRange: [0, 1],

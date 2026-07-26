@@ -3,10 +3,10 @@
  * Tinder-style card swiping interface for managing articles
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { getAllArticles, deleteArticle, Article } from '../services/database';
+import { getAllArticles, Article } from '../services/database';
 import { SwipeCard } from '../components/SwipeCard';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
 import { useTheme } from '../context/ThemeContext';
@@ -67,12 +67,6 @@ export default function SwipeLibraryScreen({ navigation }: any) {
         articleId: articles[currentIndex].id,
         title: articles[currentIndex].title,
       });
-    }
-  };
-
-  const handleNextCard = () => {
-    if (currentIndex < articles.length - 1) {
-      setCurrentIndex(currentIndex + 1);
     }
   };
 
@@ -194,7 +188,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.dark.textSecondary,
     fontWeight: fontWeight.semibold,
-    numberOfLines: 2,
   },
   footer: {
     paddingVertical: spacing.lg,

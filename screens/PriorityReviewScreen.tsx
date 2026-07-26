@@ -17,7 +17,6 @@ import {
   useColorScheme,
   Linking,
   Alert,
-  DeviceEventEmitter,
   Modal,
   TextInput,
   ScrollView,
@@ -45,6 +44,7 @@ import PriorityTutorial from '../components/PriorityTutorial';
 import { wp, hp, fp, ms, screenWidth } from '../utils/responsive';
 import Haptic from '../services/hapticService';
 import { isVideoPlatform, getPlatformConfig, PlatformType } from '../styles/platformColors';
+import { emitArticlesChanged } from '../services/articleEvents';
 
 type ViewMode = 'stacks' | 'grid';
 
@@ -64,23 +64,25 @@ export default function PriorityReviewScreen({ navigation }: any) {
   const [cardResetKey, setCardResetKey] = useState(0);
   const [selectedView, setSelectedView] = useState<ViewMode>('stacks');
   const [loading, setLoading] = useState(true);
-  const [swipeHistory, setSwipeHistory] = useState<number[]>([]);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [existingFolder, setExistingFolder] = useState<{ id: string; name: string } | null>(null);
   const [showDuplicatePrompt, setShowDuplicatePrompt] = useState(false);
-  const [openedArticleIds, setOpenedArticleIds] = useState<Set<number>>(new Set());
+  const [openedArticleIds, setOpenedArticleIds] = useState<Set<string>>(new Set());
 
   // Folder picker state (single article)
   const [folders, setFolders] = useState<Folder[]>([]);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [articleToAddToFolder, setArticleToAddToFolder] = useState<Article | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
+  const [folderPickerSearchQuery, setFolderPickerSearchQuery] = useState('');
 
   // Save all to folder state
   const [showSaveAllFolderPicker, setShowSaveAllFolderPicker] = useState(false);
   const [saveAllFolderName, setSaveAllFolderName] = useState('');
+  const [saveAllFolderSearchQuery, setSaveAllFolderSearchQuery] = useState('');
+  const [expandedNoteArticle, setExpandedNoteArticle] = useState<Article | null>(null);
 
   // Tutorial state
   const [showTutorial, setShowTutorial] = useState(false);
@@ -143,11 +145,15 @@ export default function PriorityReviewScreen({ navigation }: any) {
   };
 
   const visibleCards = getVisibleCards();
+  const filteredFolderPickerFolders = folderPickerSearchQuery.trim()
+    ? folders.filter(f => f.name.toLowerCase().includes(folderPickerSearchQuery.trim().toLowerCase()))
+    : folders;
+  const filteredSaveAllFolders = saveAllFolderSearchQuery.trim()
+    ? folders.filter(f => f.name.toLowerCase().includes(saveAllFolderSearchQuery.trim().toLowerCase()))
+    : folders;
 
-  const handleSwipeLeft = (articleId: number) => {
+  const handleSwipeLeft = (_articleId: string) => {
     // Skip - cycle to bottom of stack
-    setSwipeHistory(prev => [...prev, articleId]);
-
     // If only 1 card, force re-render by incrementing reset key
     if (priorityArticles.length === 1) {
       setCardResetKey(prev => prev + 1);
@@ -156,7 +162,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
     }
   };
 
-  const handleSwipeRight = async (articleId: number) => {
+  const handleSwipeRight = async (articleId: string) => {
     // Open in browser and mark as read
     const article = priorityArticles.find(a => a.id === articleId);
     if (article?.url) {
@@ -169,8 +175,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
         newOpenedIds.add(articleId);
         setOpenedArticleIds(newOpenedIds);
 
-        // Add to history and cycle to next card (like swipe left)
-        setSwipeHistory(prev => [...prev, articleId]);
+        // Cycle to next card (like swipe left)
         setCurrentIndex(prev => (prev + 1) % priorityArticles.length);
 
         // Open the URL
@@ -195,7 +200,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
                       setPriorityArticles([]);
                       setOpenedArticleIds(new Set());
                       // Emit refresh event so NotifHomeScreen reloads articles
-                      DeviceEventEmitter.emit('refreshArticles');
+                      emitArticlesChanged();
                       navigation.goBack();
                     } catch (error) {
                       console.error('Error moving articles:', error);
@@ -212,7 +217,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
     }
   };
 
-  const handleDelete = async (articleId: number) => {
+  const handleDelete = async (articleId: string) => {
     try {
       await deleteArticle(articleId);
       const updated = priorityArticles.filter(a => a.id !== articleId);
@@ -223,24 +228,6 @@ export default function PriorityReviewScreen({ navigation }: any) {
     } catch (error) {
       console.error('[PriorityReviewScreen] Error deleting article:', error);
     }
-  };
-
-  const handleUndo = () => {
-    if (swipeHistory.length === 0) return;
-    Haptic.light();
-    const lastId = swipeHistory[swipeHistory.length - 1];
-    setSwipeHistory(prev => prev.slice(0, -1));
-    const lastIndex = priorityArticles.findIndex(a => a.id === lastId);
-    if (lastIndex !== -1) {
-      setCurrentIndex(lastIndex);
-    }
-  };
-
-  const handleShuffle = () => {
-    Haptic.medium();
-    const shuffled = [...priorityArticles].sort(() => Math.random() - 0.5);
-    setPriorityArticles(shuffled);
-    setCurrentIndex(0);
   };
 
   const handleMoveBack = () => {
@@ -267,7 +254,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
                   setCurrentIndex(0);
                 }
                 // Emit refresh event
-                DeviceEventEmitter.emit('refreshArticles');
+                emitArticlesChanged();
               }
             } catch (error) {
               console.error('Error moving article:', error);
@@ -283,7 +270,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
                 await updateArticle(article.id, { isBookmarked: false });
               }
               setPriorityArticles([]);
-              DeviceEventEmitter.emit('refreshArticles');
+              emitArticlesChanged();
               navigation.goBack();
             } catch (error) {
               console.error('Error moving articles:', error);
@@ -299,7 +286,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
   };
 
   // Mark article as read (from priority view)
-  const handleMarkAsRead = async (articleId: number) => {
+  const handleMarkAsRead = async (articleId: string) => {
     try {
       await updateArticle(articleId, { isUnread: false });
       console.log('[PriorityReviewScreen] Marked article as read:', articleId);
@@ -320,32 +307,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
     return `${minutes}m ago`;
   };
 
-  // Remove from priority (unmark bookmark)
-  const handleRemoveFromPriority = async (articleId: number) => {
-    try {
-      await updateArticle(articleId, { isBookmarked: false });
-      const updated = priorityArticles.filter(a => a.id !== articleId);
-      setPriorityArticles(updated);
-      if (updated.length > 0 && currentIndex >= updated.length) {
-        setCurrentIndex(0);
-      }
-    } catch (error) {
-      console.error('[PriorityReviewScreen] Error removing from priority:', error);
-    }
-  };
-
   // ===== FOLDER FUNCTIONS =====
-
-  const handleOpenFolderModal = () => {
-    if (priorityArticles.length === 0) {
-      Alert.alert('No Articles', 'Add some articles to priority first before saving as a folder.');
-      return;
-    }
-    setFolderName('');
-    setExistingFolder(null);
-    setShowDuplicatePrompt(false);
-    setShowFolderModal(true);
-  };
 
   const handleCheckFolderName = async () => {
     const trimmedName = folderName.trim();
@@ -426,6 +388,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
   const handleAddToFolderPress = (article: Article) => {
     setArticleToAddToFolder(article);
     setNewFolderName('');
+    setFolderPickerSearchQuery('');
     setShowFolderPicker(true);
   };
 
@@ -436,10 +399,11 @@ export default function PriorityReviewScreen({ navigation }: any) {
       await addArticlesToFolder(folder.id, [articleToAddToFolder.id.toString()]);
 
       // Emit refresh event
-      DeviceEventEmitter.emit('refreshArticles');
+      emitArticlesChanged();
 
       setShowFolderPicker(false);
       setArticleToAddToFolder(null);
+      setFolderPickerSearchQuery('');
 
       Alert.alert('Added to Folder', `Article added to "${folder.name}". It remains in Priority.`);
     } catch (error) {
@@ -461,11 +425,12 @@ export default function PriorityReviewScreen({ navigation }: any) {
       setFolders(allFolders);
 
       // Emit refresh event
-      DeviceEventEmitter.emit('refreshArticles');
+      emitArticlesChanged();
 
       setShowFolderPicker(false);
       setArticleToAddToFolder(null);
       setNewFolderName('');
+      setFolderPickerSearchQuery('');
 
       Alert.alert('Folder Created', `Article added to new folder "${trimmedName}". It remains in Priority.`);
     } catch (error) {
@@ -482,6 +447,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
       return;
     }
     setSaveAllFolderName('');
+    setSaveAllFolderSearchQuery('');
     setShowSaveAllFolderPicker(true);
   };
 
@@ -495,10 +461,11 @@ export default function PriorityReviewScreen({ navigation }: any) {
       setFolders(allFolders);
 
       // Emit refresh event
-      DeviceEventEmitter.emit('refreshArticles');
+      emitArticlesChanged();
 
       setShowSaveAllFolderPicker(false);
       setSaveAllFolderName('');
+      setSaveAllFolderSearchQuery('');
 
       Alert.alert(
         'Saved to Folder',
@@ -524,10 +491,11 @@ export default function PriorityReviewScreen({ navigation }: any) {
       setFolders(allFolders);
 
       // Emit refresh event
-      DeviceEventEmitter.emit('refreshArticles');
+      emitArticlesChanged();
 
       setShowSaveAllFolderPicker(false);
       setSaveAllFolderName('');
+      setSaveAllFolderSearchQuery('');
 
       Alert.alert(
         'Folder Created',
@@ -808,7 +776,13 @@ export default function PriorityReviewScreen({ navigation }: any) {
           </View>
 
           {/* Description Preview Box - subtle style */}
-          <View style={[styles.notesPreviewBox, { backgroundColor: isDark ? 'rgba(80, 80, 80, 0.6)' : colors.background.secondary }]}>
+          <TouchableOpacity
+            style={[styles.notesPreviewBox, { backgroundColor: isDark ? 'rgba(80, 80, 80, 0.6)' : colors.background.secondary }]}
+            activeOpacity={visibleCards[0]?.notes ? 0.75 : 1}
+            delayLongPress={250}
+            onPress={() => visibleCards[0]?.notes && setExpandedNoteArticle(visibleCards[0])}
+            onLongPress={() => visibleCards[0]?.notes && setExpandedNoteArticle(visibleCards[0])}
+          >
             {visibleCards[0]?.notes ? (
               <Text style={[styles.notesPreviewText, { color: colors.text.tertiary }]} numberOfLines={2}>
                 {visibleCards[0].notes}
@@ -818,7 +792,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
                 Tap flip button to add description
               </Text>
             )}
-          </View>
+          </TouchableOpacity>
         </View>
       ) : (
         // Grid view
@@ -845,6 +819,38 @@ export default function PriorityReviewScreen({ navigation }: any) {
         isDarkMode={isDark}
         colors={colors}
       />
+
+      <Modal
+        visible={!!expandedNoteArticle}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setExpandedNoteArticle(null)}
+      >
+        <TouchableOpacity
+          style={styles.noteReaderOverlay}
+          activeOpacity={1}
+          onPress={() => setExpandedNoteArticle(null)}
+        >
+          <View
+            style={[styles.noteReaderCard, { backgroundColor: colors.background.primary }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={[styles.noteReaderTitle, { color: colors.text.primary }]}>
+              Description
+            </Text>
+            {expandedNoteArticle?.title && (
+              <Text style={[styles.noteReaderArticleTitle, { color: colors.text.secondary }]} numberOfLines={2}>
+                {expandedNoteArticle.title}
+              </Text>
+            )}
+            <ScrollView style={styles.noteReaderScroll} showsVerticalScrollIndicator={true}>
+              <Text style={[styles.noteReaderText, { color: colors.text.primary }]}>
+                {expandedNoteArticle?.notes}
+              </Text>
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Save as Folder Modal */}
       <Modal
@@ -971,6 +977,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
         onRequestClose={() => {
           setShowFolderPicker(false);
           setArticleToAddToFolder(null);
+          setFolderPickerSearchQuery('');
         }}
       >
         <KeyboardAvoidingView
@@ -983,6 +990,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
             onPress={() => {
               setShowFolderPicker(false);
               setArticleToAddToFolder(null);
+              setFolderPickerSearchQuery('');
             }}
           />
           <View style={[styles.folderModalContent, { backgroundColor: colors.background.secondary }]}>
@@ -1002,11 +1010,29 @@ export default function PriorityReviewScreen({ navigation }: any) {
               </Text>
             </View>
 
+            {folders.length > 0 && (
+              <View style={[styles.folderPickerSearchBar, { backgroundColor: colors.background.tertiary }]}>
+                <Icon name="search" size={18} color={colors.text.tertiary} />
+                <TextInput
+                  style={[styles.folderPickerSearchInput, { color: colors.text.primary }]}
+                  placeholder="Search folders..."
+                  placeholderTextColor={colors.text.tertiary}
+                  value={folderPickerSearchQuery}
+                  onChangeText={setFolderPickerSearchQuery}
+                />
+                {folderPickerSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setFolderPickerSearchQuery('')}>
+                    <Icon name="close-circle" size={18} color={colors.text.tertiary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
             {/* Existing Folders */}
             {folders.length > 0 && (
               <ScrollView style={styles.folderPickerScrollView} showsVerticalScrollIndicator={true}>
                 <View style={styles.folderPickerList}>
-                  {folders.map((folder) => (
+                  {filteredFolderPickerFolders.map((folder) => (
                     <TouchableOpacity
                       key={folder.id}
                       style={[styles.folderPickerItem, { backgroundColor: colors.background.tertiary }]}
@@ -1021,6 +1047,13 @@ export default function PriorityReviewScreen({ navigation }: any) {
                       </Text>
                     </TouchableOpacity>
                   ))}
+                  {filteredFolderPickerFolders.length === 0 && (
+                    <View style={styles.folderPickerEmptySearch}>
+                      <Text style={[styles.folderPickerEmptySearchText, { color: colors.text.tertiary }]}>
+                        No folders found
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </ScrollView>
             )}
@@ -1052,6 +1085,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
               onPress={() => {
                 setShowFolderPicker(false);
                 setArticleToAddToFolder(null);
+                setFolderPickerSearchQuery('');
               }}
             >
               <Text style={[styles.folderCancelText, { color: colors.text.secondary }]}>Cancel</Text>
@@ -1068,6 +1102,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
         onRequestClose={() => {
           setShowSaveAllFolderPicker(false);
           setSaveAllFolderName('');
+          setSaveAllFolderSearchQuery('');
         }}
       >
         <KeyboardAvoidingView
@@ -1080,6 +1115,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
             onPress={() => {
               setShowSaveAllFolderPicker(false);
               setSaveAllFolderName('');
+              setSaveAllFolderSearchQuery('');
             }}
           />
           <View style={[styles.folderModalContent, { backgroundColor: colors.background.secondary }]}>
@@ -1099,11 +1135,29 @@ export default function PriorityReviewScreen({ navigation }: any) {
               </Text>
             </View>
 
+            {folders.length > 0 && (
+              <View style={[styles.folderPickerSearchBar, { backgroundColor: colors.background.tertiary }]}>
+                <Icon name="search" size={18} color={colors.text.tertiary} />
+                <TextInput
+                  style={[styles.folderPickerSearchInput, { color: colors.text.primary }]}
+                  placeholder="Search folders..."
+                  placeholderTextColor={colors.text.tertiary}
+                  value={saveAllFolderSearchQuery}
+                  onChangeText={setSaveAllFolderSearchQuery}
+                />
+                {saveAllFolderSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSaveAllFolderSearchQuery('')}>
+                    <Icon name="close-circle" size={18} color={colors.text.tertiary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
             {/* Existing Folders */}
             {folders.length > 0 && (
               <ScrollView style={styles.folderPickerScrollView} showsVerticalScrollIndicator={true}>
                 <View style={styles.folderPickerList}>
-                  {folders.map((folder) => (
+                  {filteredSaveAllFolders.map((folder) => (
                     <TouchableOpacity
                       key={folder.id}
                       style={[styles.folderPickerItem, { backgroundColor: colors.background.tertiary }]}
@@ -1118,6 +1172,13 @@ export default function PriorityReviewScreen({ navigation }: any) {
                       </Text>
                     </TouchableOpacity>
                   ))}
+                  {filteredSaveAllFolders.length === 0 && (
+                    <View style={styles.folderPickerEmptySearch}>
+                      <Text style={[styles.folderPickerEmptySearchText, { color: colors.text.tertiary }]}>
+                        No folders found
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </ScrollView>
             )}
@@ -1149,6 +1210,7 @@ export default function PriorityReviewScreen({ navigation }: any) {
               onPress={() => {
                 setShowSaveAllFolderPicker(false);
                 setSaveAllFolderName('');
+                setSaveAllFolderSearchQuery('');
               }}
             >
               <Text style={[styles.folderCancelText, { color: colors.text.secondary }]}>Cancel</Text>
@@ -1616,6 +1678,20 @@ const styles = StyleSheet.create({
     maxHeight: hp(250),
     marginBottom: hp(16),
   },
+  folderPickerSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: wp(12),
+    paddingVertical: hp(10),
+    borderRadius: ms(12),
+    gap: wp(8),
+    marginBottom: hp(12),
+  },
+  folderPickerSearchInput: {
+    flex: 1,
+    fontSize: fp(15),
+    padding: 0,
+  },
   folderPickerList: {
     // Container for folder items
   },
@@ -1635,6 +1711,14 @@ const styles = StyleSheet.create({
   },
   folderPickerItemCount: {
     fontSize: fp(12),
+  },
+  folderPickerEmptySearch: {
+    paddingVertical: hp(20),
+    alignItems: 'center',
+  },
+  folderPickerEmptySearchText: {
+    fontSize: fp(14),
+    fontWeight: '500',
   },
   createFolderButton: {
     width: ms(36),
@@ -1656,6 +1740,37 @@ const styles = StyleSheet.create({
     borderRadius: ms(12),
     padding: wp(12),
     opacity: 0.8,
+  },
+  noteReaderOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: wp(20),
+  },
+  noteReaderCard: {
+    width: '100%',
+    maxWidth: wp(360),
+    maxHeight: '70%',
+    borderRadius: ms(20),
+    padding: wp(20),
+  },
+  noteReaderTitle: {
+    fontSize: fp(18),
+    fontWeight: '700',
+    marginBottom: hp(8),
+  },
+  noteReaderArticleTitle: {
+    fontSize: fp(13),
+    lineHeight: fp(18),
+    marginBottom: hp(14),
+  },
+  noteReaderScroll: {
+    maxHeight: hp(360),
+  },
+  noteReaderText: {
+    fontSize: fp(15),
+    lineHeight: fp(24),
   },
   notesPreviewHeader: {
     flexDirection: 'row',

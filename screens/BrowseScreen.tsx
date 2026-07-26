@@ -13,7 +13,7 @@ import {
   Linking,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { getAllArticles, deleteArticle, Article, updateArticle } from '../services/database';
+import { getAllArticles, Article, updateArticle } from '../services/database';
 import { SwipeCard } from '../components/SwipeCard';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../styles/theme';
 import { useTheme } from '../context/ThemeContext';

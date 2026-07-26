@@ -6,7 +6,6 @@
 import * as Keychain from 'react-native-keychain';
 
 const SERVICE_NAME = 'InstaChat_API_Keys';
-const OPENAI_KEY = 'openai_api_key';
 
 /**
  * Save OpenAI API key to encrypted keychain
@@ -16,7 +15,7 @@ export const saveOpenAiApiKey = async (apiKey: string): Promise<void> => {
     console.log('[Keychain] Saving OpenAI API key...');
     await Keychain.setGenericPassword(SERVICE_NAME, apiKey, {
       service: SERVICE_NAME,
-      accessibilityAfterFirstUnlock: true,
+      accessible: Keychain.ACCESSIBLE.AFTER_FIRST_UNLOCK,
     });
     console.log('[Keychain] OpenAI API key saved securely');
   } catch (error) {

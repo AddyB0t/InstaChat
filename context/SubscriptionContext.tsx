@@ -3,19 +3,37 @@
  * Manages RevenueCat subscription state globally
  */
 
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
+import {
+  REVENUECAT_API_KEY_ANDROID as ENV_REVENUECAT_API_KEY_ANDROID,
+  REVENUECAT_API_KEY_IOS as ENV_REVENUECAT_API_KEY_IOS,
+} from '@env';
 
-// RevenueCat API keys from dashboard
-const REVENUECAT_API_KEY_IOS = 'appl_zsiWtbAlioBfBUbGcIPxuDigslN';
-const REVENUECAT_API_KEY_ANDROID = 'goog_YOUR_ANDROID_API_KEY'; // Add Android key when ready
+const FALLBACK_REVENUECAT_API_KEY_IOS = 'appl_zsiWtbAlioBfBUbGcIPxuDigslN';
 
 const DEV_MODE_KEY = '@notif_dev_mode';
 const DEV_PASSWORD = 'claude-code';
 
 export const FREE_ARTICLE_LIMIT = 10;
+
+const getRevenueCatApiKey = (): string | null => {
+  const envKey = Platform.OS === 'ios'
+    ? ENV_REVENUECAT_API_KEY_IOS
+    : ENV_REVENUECAT_API_KEY_ANDROID;
+  const fallbackKey = Platform.OS === 'ios'
+    ? FALLBACK_REVENUECAT_API_KEY_IOS
+    : undefined;
+  const apiKey = (envKey || fallbackKey || '').trim();
+
+  if (!apiKey || apiKey.includes('YOUR_') || apiKey.includes('your_')) {
+    return null;
+  }
+
+  return apiKey;
+};
 
 interface SubscriptionContextType {
   isPremium: boolean;
@@ -36,18 +54,14 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [isPremiumState, setIsPremiumState] = useState(false);
   const [isDevMode, setIsDevMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPurchasesConfigured, setIsPurchasesConfigured] = useState(false);
   const [currentOffering, setCurrentOffering] = useState<PurchasesPackage | null>(null);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
 
   // Combined premium status (either paid or dev mode)
   const isPremium = isPremiumState || isDevMode;
 
-  useEffect(() => {
-    initializePurchases();
-    checkDevMode();
-  }, []);
-
-  const checkDevMode = async () => {
+  const checkDevMode = useCallback(async () => {
     try {
       const devMode = await AsyncStorage.getItem(DEV_MODE_KEY);
       if (devMode === 'true') {
@@ -57,7 +71,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     } catch (error) {
       console.error('[SubscriptionContext] Error checking dev mode:', error);
     }
-  };
+  }, []);
 
   const enableDevMode = async (password: string): Promise<boolean> => {
     if (password === DEV_PASSWORD) {
@@ -84,14 +98,17 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
 
-  const initializePurchases = async () => {
+  const initializePurchases = useCallback(async () => {
     try {
-      const apiKey = Platform.OS === 'ios'
-        ? REVENUECAT_API_KEY_IOS
-        : REVENUECAT_API_KEY_ANDROID;
+      const apiKey = getRevenueCatApiKey();
+      if (!apiKey) {
+        console.warn('[SubscriptionContext] RevenueCat API key missing, skipping purchase setup');
+        return;
+      }
 
       // Configure RevenueCat
       await Purchases.configure({ apiKey });
+      setIsPurchasesConfigured(true);
 
       // Get customer info
       const info = await Purchases.getCustomerInfo();
@@ -117,13 +134,24 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
 
       console.log('[SubscriptionContext] Initialized, isPremium:', hasPremium);
     } catch (error) {
+      setIsPurchasesConfigured(false);
       console.error('[SubscriptionContext] Error initializing purchases:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    initializePurchases();
+    checkDevMode();
+  }, [initializePurchases, checkDevMode]);
 
   const checkSubscriptionStatus = async (): Promise<boolean> => {
+    if (!isPurchasesConfigured) {
+      console.warn('[SubscriptionContext] Purchases not configured, skipping status check');
+      return isPremiumState;
+    }
+
     try {
       const info = await Purchases.getCustomerInfo();
       const hasPremium = info.entitlements.active['premium'] !== undefined;
@@ -161,6 +189,11 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const restorePurchases = async (): Promise<boolean> => {
+    if (!isPurchasesConfigured) {
+      console.warn('[SubscriptionContext] Purchases not configured, skipping restore');
+      return false;
+    }
+
     try {
       console.log('[SubscriptionContext] Restoring purchases...');
       const info = await Purchases.restorePurchases();

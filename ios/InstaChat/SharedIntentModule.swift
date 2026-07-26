@@ -1,8 +1,10 @@
 import Foundation
 import React
+import os
 
 @objc(SharedIntentModule)
 class SharedIntentModule: RCTEventEmitter {
+  private let logger = Logger(subsystem: "com.notif.bookmark", category: "SharedIntentModule")
 
   @objc
   override static func requiresMainQueueSetup() -> Bool {
@@ -22,6 +24,14 @@ class SharedIntentModule: RCTEventEmitter {
     // Check AppDelegate's pending URL
     if let pendingUrl = AppDelegate.pendingShareUrl {
       AppDelegate.pendingShareUrl = nil
+      logger.info("Returning single pending URL from AppDelegate")
+      resolve(pendingUrl)
+      return
+    }
+
+    if !AppDelegate.pendingShareQueue.isEmpty {
+      let pendingUrl = AppDelegate.pendingShareQueue.removeFirst()
+      logger.info("Returning queued pending URL from AppDelegate. remaining=\(AppDelegate.pendingShareQueue.count, privacy: .public)")
       resolve(pendingUrl)
       return
     }
@@ -32,6 +42,7 @@ class SharedIntentModule: RCTEventEmitter {
     let sharedQueueKey = "ShareQueue"
 
     guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      logger.error("Unable to open app group UserDefaults")
       resolve(nil)
       return
     }
@@ -42,6 +53,7 @@ class SharedIntentModule: RCTEventEmitter {
       let url = queue.removeFirst()
       userDefaults.set(queue, forKey: sharedQueueKey)
       userDefaults.synchronize()
+      logger.info("Returning pending URL from app group queue. remaining=\(queue.count, privacy: .public)")
       resolve(url)
       return
     }
@@ -50,6 +62,7 @@ class SharedIntentModule: RCTEventEmitter {
     if let sharedUrl = userDefaults.string(forKey: sharedKey) {
       userDefaults.removeObject(forKey: sharedKey)
       userDefaults.synchronize()
+      logger.info("Returning single pending URL from app group")
       resolve(sharedUrl)
       return
     }
@@ -71,6 +84,16 @@ class SharedIntentModule: RCTEventEmitter {
 
     var allUrls: [String] = []
 
+    if let pendingUrl = AppDelegate.pendingShareUrl {
+      allUrls.append(pendingUrl)
+      AppDelegate.pendingShareUrl = nil
+    }
+
+    if !AppDelegate.pendingShareQueue.isEmpty {
+      allUrls.append(contentsOf: AppDelegate.pendingShareQueue)
+      AppDelegate.pendingShareQueue.removeAll()
+    }
+
     // Get queue
     if let queue = userDefaults.stringArray(forKey: sharedQueueKey) {
       allUrls.append(contentsOf: queue)
@@ -84,6 +107,7 @@ class SharedIntentModule: RCTEventEmitter {
     }
 
     userDefaults.synchronize()
+    logger.info("Returning pending share queue to JS. count=\(allUrls.count, privacy: .public)")
     resolve(allUrls)
   }
 

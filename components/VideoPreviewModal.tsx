@@ -3,7 +3,7 @@
  * Supports YouTube, Twitter/X, TikTok, and other video platforms
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { wp, hp, fp, ms, screenWidth, screenHeight } from '../utils/responsive';
+import { wp, hp, fp, ms } from '../utils/responsive';
 import { PlatformType, getPlatformConfig, getVideoThumbnailUrl } from '../styles/platformColors';
 
 interface VideoPreviewModalProps {
@@ -30,56 +30,6 @@ interface VideoPreviewModalProps {
   isDarkMode: boolean;
   colors: any;
 }
-
-/**
- * Get embeddable URL for different platforms
- */
-const getEmbedUrl = (url: string, platform: PlatformType): string => {
-  try {
-    if (platform === 'youtube') {
-      // Convert YouTube URL to embed format
-      // youtube.com/watch?v=ID -> youtube.com/embed/ID
-      // youtu.be/ID -> youtube.com/embed/ID
-      const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-      if (videoIdMatch) {
-        return `https://www.youtube.com/embed/${videoIdMatch[1]}?autoplay=1&rel=0`;
-      }
-    }
-
-    if (platform === 'twitter') {
-      // For Twitter, we'll use the mobile version which works better in WebView
-      // Convert x.com to twitter.com for better embed support
-      let twitterUrl = url.replace('x.com', 'twitter.com');
-      // Use publish.twitter.com embed
-      return `https://platform.twitter.com/embed/Tweet.html?id=${extractTwitterId(url)}&theme=dark`;
-    }
-
-    if (platform === 'tiktok') {
-      // TikTok embed URL
-      const videoIdMatch = url.match(/\/video\/(\d+)/);
-      if (videoIdMatch) {
-        return `https://www.tiktok.com/embed/v2/${videoIdMatch[1]}`;
-      }
-    }
-
-    if (platform === 'instagram') {
-      // Instagram embed - add /embed to the URL
-      if (!url.includes('/embed')) {
-        return url.replace(/\/?$/, '/embed');
-      }
-    }
-
-    if (platform === 'facebook') {
-      // Facebook video embed
-      return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false`;
-    }
-
-    // Default: return original URL
-    return url;
-  } catch {
-    return url;
-  }
-};
 
 /**
  * Extract Twitter/X tweet ID from URL
@@ -94,7 +44,6 @@ const extractTwitterId = (url: string): string => {
  */
 const getEmbedHtml = (url: string, platform: PlatformType, isDarkMode: boolean): string => {
   const bgColor = isDarkMode ? '#1a1a1a' : '#ffffff';
-  const textColor = isDarkMode ? '#ffffff' : '#000000';
 
   if (platform === 'youtube') {
     const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
@@ -260,7 +209,6 @@ export default function VideoPreviewModal({
       } else if (platform === 'instagram') {
         // Try to open in Instagram app
         // Instagram URLs: instagram.com/reel/ID or instagram.com/p/ID
-        const instaAppUrl = `instagram://media?id=${url}`;
         const canOpenApp = await Linking.canOpenURL('instagram://');
         if (canOpenApp) {
           // Open the web URL which will redirect to app if installed

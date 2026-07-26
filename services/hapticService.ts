@@ -4,7 +4,7 @@
  */
 
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { Platform, Vibration } from 'react-native';
+import { Vibration } from 'react-native';
 
 const options = {
   enableVibrateFallback: true,
@@ -16,10 +16,7 @@ const safeTrigger = (type: string) => {
   try {
     ReactNativeHapticFeedback.trigger(type as any, options);
   } catch (error) {
-    // Fallback to basic vibration on Android
-    if (Platform.OS === 'android') {
-      Vibration.vibrate(10);
-    }
+    Vibration.vibrate(10);
     console.log('[Haptic] Error triggering haptic:', error);
   }
 };

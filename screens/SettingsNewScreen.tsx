@@ -25,6 +25,7 @@ import { useSubscription } from '../context/SubscriptionContext';
 import { ThemeColors } from '../styles/notifTheme';
 import { wp, hp, fp, ms } from '../utils/responsive';
 import Haptic from '../services/hapticService';
+import { clearDeviceLogs, logError, logInfo, shareDeviceLogs } from '../services/logger';
 
 interface SettingsNewScreenProps {
   navigation: any;
@@ -190,6 +191,31 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
     Alert.alert('Tutorial Reset', 'Priority screen tutorial will show on next visit.');
   };
 
+  const handleShareLogs = async () => {
+    try {
+      Haptic.light();
+      logInfo('Settings', 'User requested debug log export');
+      await shareDeviceLogs();
+    } catch (error) {
+      logError('Settings', 'Failed to share debug logs', error);
+      Alert.alert('Logs unavailable', 'Unable to share debug logs right now.');
+    }
+  };
+
+  const handleClearLogs = () => {
+    Alert.alert(
+      'Clear Debug Logs',
+      'Delete the saved startup and error logs from this device?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear', style: 'destructive', onPress: async () => {
+          await clearDeviceLogs();
+          Alert.alert('Logs Cleared', 'Debug logs were deleted from this device.');
+        }},
+      ]
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background.primary, paddingTop: insets.top }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
@@ -295,6 +321,28 @@ export const SettingsNewScreen: React.FC<SettingsNewScreenProps> = ({ navigation
             title="Reset Priority Tutorial"
             subtitle="Show the priority tutorial again"
             onPress={handleResetPriorityTutorial}
+            colors={colors}
+          />
+        </View>
+
+        {/* Diagnostics Section */}
+        <SectionHeader title="Diagnostics" colors={colors} />
+        <View style={[styles.sectionCard, { backgroundColor: colors.background.secondary }]}>
+          <SettingRow
+            iconName="bug-outline"
+            iconBgColor="#0EA5E9"
+            title="Share Debug Logs"
+            subtitle="Export recent startup and error logs"
+            onPress={handleShareLogs}
+            colors={colors}
+          />
+          <View style={styles.rowDivider} />
+          <SettingRow
+            iconName="trash-outline"
+            iconBgColor="#6B7280"
+            title="Clear Debug Logs"
+            subtitle="Delete logs saved on this device"
+            onPress={handleClearLogs}
             colors={colors}
           />
         </View>

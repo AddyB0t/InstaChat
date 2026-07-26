@@ -31,10 +31,9 @@ const Tab = createBottomTabNavigator();
 function HomeStackNavigator() {
   return (
     <Stack.Navigator
+      detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
-        detachInactiveScreens: false,
-        animationEnabled: true,
         cardStyleInterpolator: ({ current }) => ({
           cardStyle: {
             opacity: current.progress,
@@ -65,10 +64,9 @@ function HomeStackNavigator() {
 function SearchStackNavigator() {
   return (
     <Stack.Navigator
+      detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
-        detachInactiveScreens: false,
-        animationEnabled: true,
         cardStyleInterpolator: ({ current }) => ({
           cardStyle: {
             opacity: current.progress,
@@ -95,10 +93,9 @@ function SearchStackNavigator() {
 function SettingsStackNavigator() {
   return (
     <Stack.Navigator
+      detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
-        detachInactiveScreens: false,
-        animationEnabled: true,
         cardStyleInterpolator: ({ current }) => ({
           cardStyle: {
             opacity: current.progress,

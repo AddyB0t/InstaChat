@@ -46,7 +46,7 @@ const SettingsMinimalist = () => {
               const updatedCount = await addTagsToAllArticles(tags);
               setBulkTagInput('');
               Alert.alert('Success', `Tags added to ${updatedCount} articles`);
-            } catch (error) {
+            } catch {
               Alert.alert('Error', 'Failed to add tags to articles');
             } finally {
               setIsAddingTags(false);
@@ -66,7 +66,7 @@ const SettingsMinimalist = () => {
       } else {
         Alert.alert('Connection Failed', result.message);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to test connection');
     } finally {
       setIsTestingConnection(false);

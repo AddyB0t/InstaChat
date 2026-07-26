@@ -12,7 +12,6 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
-  useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Article, getAllArticles, deleteArticle, updateArticle } from '../services/database';
@@ -42,25 +41,14 @@ const LibraryScreen = ({ navigation }: any) => {
   );
 
   useEffect(() => {
-    filterArticles();
-  }, [articles, searchQuery, filter]);
-
-  const loadArticles = async () => {
-    const loaded = await getAllArticles();
-    setArticles(loaded);
-  };
-
-  const filterArticles = () => {
     let results = articles;
 
-    // Apply filter
     if (filter === 'unread') {
       results = results.filter(a => a.isUnread !== false);
     } else if (filter === 'favorites') {
       results = results.filter(a => a.isFavorite === true);
     }
 
-    // Apply search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       results = results.filter(
@@ -72,6 +60,11 @@ const LibraryScreen = ({ navigation }: any) => {
     }
 
     setFilteredArticles(results);
+  }, [articles, searchQuery, filter]);
+
+  const loadArticles = async () => {
+    const loaded = await getAllArticles();
+    setArticles(loaded);
   };
 
   const handleDeleteArticle = (id: string) => {
@@ -353,7 +346,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTopWidth: 1,
+    borderTopWidth: 1,
     borderTopColor: colors.dark.border,
     marginTop: spacing.md,
     paddingTop: spacing.md,

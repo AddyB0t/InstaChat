@@ -3,7 +3,7 @@
  * Manage article folders for organization
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -48,7 +48,7 @@ const FoldersScreen = () => {
       setNewFolderName('');
       setShowNewFolder(false);
       await loadFolders();
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to create folder');
     }
   };

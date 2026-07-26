@@ -13,7 +13,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  ToastAndroid,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { wp, hp, fp, ms } from '../utils/responsive';
@@ -21,6 +20,7 @@ import { saveArticle, updateArticle } from '../services/database';
 import { extractAndCreateArticle, enhanceArticleInBackground } from '../services/articleExtractor';
 import { useSubscription } from '../context/SubscriptionContext';
 import { canSaveArticle, FREE_ARTICLE_LIMIT } from '../services/subscriptionService';
+import { showTransientMessage } from '../services/feedback';
 
 interface AddLinkModalProps {
   visible: boolean;
@@ -34,7 +34,7 @@ interface AddLinkModalProps {
 export default function AddLinkModal({
   visible,
   onClose,
-  isDarkMode,
+  isDarkMode: _isDarkMode,
   colors,
   onLinkAdded,
   onPremiumRequired,
@@ -61,7 +61,7 @@ export default function AddLinkModal({
       setError('');
 
       // Check subscription before saving
-      const { canSave, articleCount, requiresPremium } = await canSaveArticle(isPremium);
+      const { articleCount, requiresPremium } = await canSaveArticle(isPremium);
       if (requiresPremium) {
         setLoading(false);
         setError(`You've reached the ${FREE_ARTICLE_LIMIT} article limit. Upgrade to Premium for unlimited saves.`);
@@ -85,7 +85,7 @@ export default function AddLinkModal({
         if (updates) {
           try {
             await updateArticle(article.id, updates);
-            ToastAndroid.show('AI tags added!', ToastAndroid.SHORT);
+            showTransientMessage('AI tags added!');
           } catch (updateError) {
             console.log('[AddLinkModal] Failed to update with AI data:', updateError);
           }
