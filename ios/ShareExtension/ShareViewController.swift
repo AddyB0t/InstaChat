@@ -7,6 +7,8 @@ class ShareViewController: UIViewController {
     let appGroupId = "group.com.notif.bookmark"
     let sharedKey = "ShareKey"
     let sharedQueueKey = "ShareQueue" // Array of URLs for queuing multiple shares
+    let shareDebugEventsKey = "ShareDebugEvents"
+    let maxShareDebugEvents = 1000
     private let logger = Logger(subsystem: "com.notif.bookmark", category: "ShareExtension")
 
     // UI Elements
@@ -19,6 +21,7 @@ class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         logger.info("Share extension loaded")
+        recordShareDebug("Share extension loaded")
         setupUI()
         extractAndSaveURL()
     }
@@ -119,22 +122,31 @@ class ShareViewController: UIViewController {
         guard let extensionItem = extensionContext?.inputItems.first as? NSExtensionItem,
               let attachments = extensionItem.attachments else {
             logger.error("No extension item attachments found")
+            recordShareDebug("No extension item attachments found")
             showError()
             return
         }
 
+        recordShareDebug("Inspecting share attachments count=\(attachments.count)")
+
         for attachment in attachments {
+            recordShareDebug("Attachment types=\(attachment.registeredTypeIdentifiers.joined(separator: ","))")
+
             // Try URL first
             if attachment.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                 logger.info("Found URL attachment")
+                recordShareDebug("Found URL attachment")
                 attachment.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (data, error) in
                     DispatchQueue.main.async {
+                        guard let self = self else { return }
                         if let url = data as? URL {
-                            self?.logger.info("Loaded URL attachment: \(url.absoluteString, privacy: .private)")
-                            self?.saveURL(url.absoluteString)
+                            self.logger.info("Loaded URL attachment: \(url.absoluteString, privacy: .private)")
+                            self.recordShareDebug("Loaded URL attachment \(self.urlDebugSummary(url.absoluteString))")
+                            self.saveURL(url.absoluteString)
                         } else {
-                            self?.logger.error("Failed to load URL attachment")
-                            self?.showError()
+                            self.logger.error("Failed to load URL attachment")
+                            self.recordShareDebug("Failed to load URL attachment error=\(error?.localizedDescription ?? "unknown")")
+                            self.showError()
                         }
                     }
                 }
@@ -144,16 +156,20 @@ class ShareViewController: UIViewController {
             // Try plain text (might contain URL)
             if attachment.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
                 logger.info("Found plain text attachment")
+                recordShareDebug("Found plain text attachment")
                 attachment.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { [weak self] (data, error) in
                     DispatchQueue.main.async {
+                        guard let self = self else { return }
                         if let text = data as? String {
                             // Extract URL from text if present
-                            let urlString = self?.extractURL(from: text) ?? text
-                            self?.logger.info("Loaded text attachment")
-                            self?.saveURL(urlString)
+                            let urlString = self.extractURL(from: text)
+                            self.logger.info("Loaded text attachment")
+                            self.recordShareDebug("Loaded text attachment length=\(text.count) extracted=\(self.urlDebugSummary(urlString))")
+                            self.saveURL(urlString)
                         } else {
-                            self?.logger.error("Failed to load plain text attachment")
-                            self?.showError()
+                            self.logger.error("Failed to load plain text attachment")
+                            self.recordShareDebug("Failed to load plain text attachment error=\(error?.localizedDescription ?? "unknown")")
+                            self.showError()
                         }
                     }
                 }
@@ -161,6 +177,7 @@ class ShareViewController: UIViewController {
             }
         }
 
+        recordShareDebug("No supported URL or plain text attachment found")
         showError()
     }
 
@@ -170,24 +187,33 @@ class ShareViewController: UIViewController {
         let matches = detector?.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count))
 
         if let match = matches?.first, let range = Range(match.range, in: text) {
-            return String(text[range])
+            let extracted = String(text[range])
+            recordShareDebug("Extracted URL from text \(urlDebugSummary(extracted))")
+            return extracted
         }
+        recordShareDebug("No URL detected in text; using trimmed text length=\(text.trimmingCharacters(in: .whitespacesAndNewlines).count)")
         return text
     }
 
     private func saveURL(_ urlString: String) {
         // Save to App Group UserDefaults
         if let userDefaults = UserDefaults(suiteName: appGroupId) {
+            let existingQueueCount = userDefaults.stringArray(forKey: sharedQueueKey)?.count ?? 0
+            let hadSingle = userDefaults.string(forKey: sharedKey) != nil
+            recordShareDebug("Saving URL to app group existingQueueCount=\(existingQueueCount) hadSingle=\(hadSingle) \(urlDebugSummary(urlString))")
+
             // Save URL for the app to pick up
             userDefaults.set(urlString, forKey: sharedKey)
             userDefaults.set(Date().timeIntervalSince1970, forKey: "ShareTimestamp")
             userDefaults.synchronize()
             logger.info("Saved shared URL to app group")
+            recordShareDebug("Saved shared URL to app group")
 
             // Show brief success then open the app
             showSuccessAndOpenApp(urlString)
         } else {
             logger.error("Unable to open app group UserDefaults")
+            recordShareDebug("Unable to open app group UserDefaults")
             showError()
         }
     }
@@ -206,21 +232,24 @@ class ShareViewController: UIViewController {
         }
     }
 
-    private func openContainingApp(with urlString: String) {
-        // Encode the URL for passing via URL scheme
-        guard let encodedUrl = urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let appUrl = URL(string: "notif://share?url=\(encodedUrl)") else {
+    private func openContainingApp(with _: String) {
+        // The URL itself is already saved in the app group. Open the app with a
+        // simple signal URL so query parameters like &t= do not get split.
+        guard let appUrl = URL(string: "notif://share") else {
             logger.error("Unable to build containing app URL")
+            recordShareDebug("Unable to build containing app URL")
             self.dismissExtension()
             return
         }
 
         // Open containing app via URL scheme
         logger.info("Opening containing app")
+        recordShareDebug("Opening containing app signalUrl=\(appUrl.absoluteString)")
         var responder: UIResponder? = self
         while responder != nil {
             if let application = responder as? UIApplication {
                 application.open(appUrl, options: [:]) { _ in
+                    self.recordShareDebug("Containing app open completion returned")
                     self.dismissExtension()
                 }
                 return
@@ -234,6 +263,7 @@ class ShareViewController: UIViewController {
         while responder != nil {
             if responder!.responds(to: selector) {
                 responder!.perform(selector, with: appUrl)
+                recordShareDebug("Containing app opened through openURL selector fallback")
                 break
             }
             responder = responder?.next
@@ -269,6 +299,33 @@ class ShareViewController: UIViewController {
     }
 
     @objc private func dismissExtension() {
+        recordShareDebug("Dismissing share extension")
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+    }
+
+    private func recordShareDebug(_ message: String) {
+        guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+            logger.error("Unable to open app group UserDefaults for diagnostics")
+            return
+        }
+
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        var events = userDefaults.stringArray(forKey: shareDebugEventsKey) ?? []
+        events.append("\(timestamp) [ShareExtension] \(message)")
+        if events.count > maxShareDebugEvents {
+            events = Array(events.suffix(maxShareDebugEvents))
+        }
+        userDefaults.set(events, forKey: shareDebugEventsKey)
+        userDefaults.synchronize()
+    }
+
+    private func urlDebugSummary(_ urlString: String) -> String {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: trimmed) else {
+            return "url=\(trimmed) length=\(trimmed.count) parse=failed"
+        }
+
+        let queryKeys = components.queryItems?.map { $0.name }.joined(separator: ",") ?? ""
+        return "url=\(trimmed) length=\(trimmed.count) host=\(components.host ?? "") path=\(components.path) queryKeys=\(queryKeys)"
     }
 }

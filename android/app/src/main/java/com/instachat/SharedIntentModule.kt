@@ -2,6 +2,7 @@ package com.instachat
 
 import android.util.Log
 import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -30,6 +31,9 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
     fun setPendingShareUrl(url: String?) {
       _pendingShareUrl = url
       Log.d("SharedIntentModule", "Pending share URL set: $url")
+      _instance?.reactApplicationContext?.let {
+        ShareDebugLogger.record(it, "SharedIntentModule", "Pending share URL set ${url?.let(ShareDebugLogger::describeUrl) ?: "null"}")
+      }
     }
 
     @JvmStatic
@@ -44,6 +48,7 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
   init {
     _instance = this
     Log.d("SharedIntentModule", "Initialized")
+    ShareDebugLogger.record(reactContext, "SharedIntentModule", "Initialized")
   }
 
   override fun getName(): String = "SharedIntentModule"
@@ -60,6 +65,11 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
    */
   fun onShareIntentReceived(text: String) {
     Log.d("SharedIntentModule", "Share intent received: $text")
+    ShareDebugLogger.record(
+      reactApplicationContext,
+      "SharedIntentModule",
+      "Share intent received from MainActivity ${ShareDebugLogger.describeUrl(text)}"
+    )
 
     // Send event to React Native
     sendEvent("onShareIntent", text)
@@ -79,11 +89,18 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
             .emit(eventName, params)
 
         Log.d("SharedIntentModule", "Event sent to React: $eventName")
+        ShareDebugLogger.record(
+          reactApplicationContext,
+          "SharedIntentModule",
+          "Event sent to React eventName=$eventName ${ShareDebugLogger.describeUrl(data)}"
+        )
       } else {
         Log.w("SharedIntentModule", "React context not active yet")
+        ShareDebugLogger.record(reactApplicationContext, "SharedIntentModule", "React context not active for eventName=$eventName")
       }
     } catch (e: Exception) {
       Log.e("SharedIntentModule", "Error sending event: ${e.message}", e)
+      ShareDebugLogger.record(reactApplicationContext, "SharedIntentModule", "Error sending event eventName=$eventName error=${e.message}")
     }
   }
 
@@ -91,7 +108,7 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
    * Exported method to call from React Native if needed
    */
   @ReactMethod
-  fun getSharedUrl(promise: com.facebook.react.bridge.Promise) {
+  fun getSharedUrl(promise: Promise) {
     promise.resolve("URL")
   }
 
@@ -99,14 +116,55 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
    * Check for pending share URL (called from React Native on app start)
    */
   @ReactMethod
-  fun checkPendingShareUrl(promise: com.facebook.react.bridge.Promise) {
+  fun checkPendingShareUrl(promise: Promise) {
+    ShareDebugLogger.record(
+      reactApplicationContext,
+      "SharedIntentModule",
+      "JS called checkPendingShareUrl hasPending=${_pendingShareUrl != null}"
+    )
     val pendingUrl = _pendingShareUrl
     if (pendingUrl != null) {
       Log.d("SharedIntentModule", "Returning pending share URL: $pendingUrl")
+      ShareDebugLogger.record(
+        reactApplicationContext,
+        "SharedIntentModule",
+        "Returning pending share URL ${ShareDebugLogger.describeUrl(pendingUrl)}"
+      )
       clearPendingShareUrl()
       promise.resolve(pendingUrl)
     } else {
+      ShareDebugLogger.record(reactApplicationContext, "SharedIntentModule", "No pending share URL")
       promise.resolve(null)
     }
+  }
+
+  @ReactMethod
+  fun checkPendingShareQueue(promise: Promise) {
+    ShareDebugLogger.record(
+      reactApplicationContext,
+      "SharedIntentModule",
+      "JS called checkPendingShareQueue hasPending=${_pendingShareUrl != null}"
+    )
+
+    val pendingUrl = _pendingShareUrl
+    if (pendingUrl != null) {
+      clearPendingShareUrl()
+      val urls = Arguments.createArray()
+      urls.pushString(pendingUrl)
+      ShareDebugLogger.record(
+        reactApplicationContext,
+        "SharedIntentModule",
+        "Returning Android pending share queue count=1 ${ShareDebugLogger.describeUrl(pendingUrl)}"
+      )
+      promise.resolve(urls)
+    } else {
+      ShareDebugLogger.record(reactApplicationContext, "SharedIntentModule", "Returning Android pending share queue count=0")
+      promise.resolve(Arguments.createArray())
+    }
+  }
+
+  @ReactMethod
+  fun flushNativeShareDebugEvents(promise: Promise) {
+    promise.resolve(ShareDebugLogger.flush(reactApplicationContext))
   }
 }

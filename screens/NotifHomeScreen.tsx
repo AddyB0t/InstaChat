@@ -21,6 +21,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Share,
+  Pressable,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -902,7 +903,7 @@ export default function NotifHomeScreen({ navigation }: any) {
               onLongPress={() => visibleCards[0]?.notes && setExpandedNoteArticle(visibleCards[0])}
             >
               {visibleCards[0]?.notes ? (
-                <Text style={[styles.notesPreviewText, { color: colors.text.tertiary }]} numberOfLines={2}>
+                <Text style={[styles.notesPreviewText, { color: colors.text.tertiary }]} numberOfLines={3}>
                   {visibleCards[0].notes}
                 </Text>
               ) : (
@@ -1090,12 +1091,15 @@ export default function NotifHomeScreen({ navigation }: any) {
                 >
                   <Icon name="arrow-back" size={20} color={colors.text.primary} />
                 </TouchableOpacity>
-                <Text style={[styles.tagFolderTitle, { color: colors.text.primary }]}>
-                  {selectedFolder.name}
-                </Text>
-                <Text style={[styles.tagFolderCount, { color: colors.text.secondary }]}>
-                  {folderArticles.length} articles
-                </Text>
+                <View style={styles.tagFolderHeading}>
+                  <Text style={[styles.tagFolderTitle, { color: colors.text.primary }]} numberOfLines={2}>
+                    {selectedFolder.name}
+                  </Text>
+                  <Text style={[styles.tagFolderCount, { color: colors.text.secondary }]}>
+                    {folderArticles.length} articles
+                  </Text>
+                </View>
+                <View style={styles.tagFolderHeaderSpacer} />
               </View>
 
               {/* View mode toggle */}
@@ -1216,12 +1220,15 @@ export default function NotifHomeScreen({ navigation }: any) {
                 >
                   <Icon name="arrow-back" size={20} color={colors.text.primary} />
                 </TouchableOpacity>
-                <Text style={[styles.tagFolderTitle, { color: colors.text.primary }]}>
-                  Favorites
-                </Text>
-                <Text style={[styles.tagFolderCount, { color: colors.text.secondary }]}>
-                  {favoriteArticles.length} articles
-                </Text>
+                <View style={styles.tagFolderHeading}>
+                  <Text style={[styles.tagFolderTitle, { color: colors.text.primary }]} numberOfLines={2}>
+                    Favorites
+                  </Text>
+                  <Text style={[styles.tagFolderCount, { color: colors.text.secondary }]}>
+                    {favoriteArticles.length} articles
+                  </Text>
+                </View>
+                <View style={styles.tagFolderHeaderSpacer} />
               </View>
 
               {/* Favorite articles */}
@@ -1714,11 +1721,11 @@ export default function NotifHomeScreen({ navigation }: any) {
         animationType="fade"
         onRequestClose={() => setExpandedNoteArticle(null)}
       >
-        <TouchableOpacity
-          style={styles.noteReaderOverlay}
-          activeOpacity={1}
-          onPress={() => setExpandedNoteArticle(null)}
-        >
+        <View style={styles.noteReaderOverlay}>
+          <Pressable
+            style={styles.noteReaderDismissLayer}
+            onPress={() => setExpandedNoteArticle(null)}
+          />
           <View
             style={[styles.noteReaderCard, { backgroundColor: colors.background.primary }]}
             onStartShouldSetResponder={() => true}
@@ -1731,13 +1738,19 @@ export default function NotifHomeScreen({ navigation }: any) {
                 {expandedNoteArticle.title}
               </Text>
             )}
-            <ScrollView style={styles.noteReaderScroll} showsVerticalScrollIndicator={true}>
+            <ScrollView
+              style={styles.noteReaderScroll}
+              contentContainerStyle={styles.noteReaderScrollContent}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              bounces={true}
+            >
               <Text style={[styles.noteReaderText, { color: colors.text.primary }]}>
                 {expandedNoteArticle?.notes}
               </Text>
             </ScrollView>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Home Page Folder Picker Modal */}
@@ -2027,12 +2040,15 @@ const styles = StyleSheet.create({
   notesPreviewBox: {
     position: 'absolute',
     bottom: hp(80),
-    width: screenWidth * 0.65,
+    width: screenWidth * 0.82,
     alignSelf: 'center',
-    left: screenWidth * 0.175,
-    padding: wp(12),
+    left: screenWidth * 0.09,
+    minHeight: hp(54),
+    paddingHorizontal: wp(16),
+    paddingVertical: hp(12),
     borderRadius: ms(12),
-    opacity: 0.8,
+    justifyContent: 'center',
+    opacity: 0.9,
   },
   noteReaderOverlay: {
     flex: 1,
@@ -2041,12 +2057,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: wp(20),
   },
+  noteReaderDismissLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
   noteReaderCard: {
-    width: '100%',
-    maxWidth: wp(360),
-    maxHeight: '70%',
+    width: '92%',
+    maxWidth: wp(380),
+    maxHeight: '82%',
     borderRadius: ms(20),
     padding: wp(20),
+    flexShrink: 1,
   },
   noteReaderTitle: {
     fontSize: fp(18),
@@ -2059,7 +2079,11 @@ const styles = StyleSheet.create({
     marginBottom: hp(14),
   },
   noteReaderScroll: {
-    maxHeight: hp(360),
+    flexShrink: 1,
+    marginTop: hp(2),
+  },
+  noteReaderScrollContent: {
+    paddingBottom: hp(12),
   },
   noteReaderText: {
     fontSize: fp(15),
@@ -2487,24 +2511,35 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   tagFolderHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: hp(16),
     paddingHorizontal: wp(16),
+    minHeight: hp(78),
   },
   backButton: {
-    position: 'absolute',
-    left: wp(16),
-    top: hp(16),
     width: ms(36),
     height: ms(36),
     borderRadius: ms(18),
     justifyContent: 'center',
     alignItems: 'center',
   },
+  tagFolderHeading: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: wp(12),
+  },
+  tagFolderHeaderSpacer: {
+    width: ms(36),
+    height: ms(36),
+  },
   tagFolderTitle: {
     fontSize: fp(20),
     fontWeight: '700',
+    lineHeight: fp(25),
     marginBottom: hp(4),
+    textAlign: 'center',
   },
   tagFolderCount: {
     fontSize: fp(13),

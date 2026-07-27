@@ -9,6 +9,9 @@ RCT_EXTERN_METHOD(checkPendingShareUrl:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(checkPendingShareQueue:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(flushNativeShareDebugEvents:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(getSharedUrl:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 

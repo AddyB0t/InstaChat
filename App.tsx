@@ -3,8 +3,8 @@
  * Handles shared URLs from other apps
  */
 
-import React, { useEffect, useRef, createContext, useState, useContext } from 'react';
-import { StatusBar, NativeModules, Alert, View, ActivityIndicator, Modal, Text, StyleSheet, Animated, AppState, Linking, useColorScheme } from 'react-native';
+import React, { useEffect, useRef, createContext, useState, useContext, useCallback } from 'react';
+import { StatusBar, NativeModules, Alert, View, ActivityIndicator, Modal, Text, StyleSheet, Animated, AppState, Linking, useColorScheme, DeviceEventEmitter, NativeEventEmitter, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GluestackUIProvider } from '@gluestack-ui/themed';
@@ -21,14 +21,33 @@ import PremiumModal from './components/PremiumModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import FeedbackToast from './components/FeedbackToast';
 import { showTransientMessage } from './services/feedback';
-import { logInfo } from './services/logger';
+import { importNativeShareDebugEvents, logError, logInfo, logWarn } from './services/logger';
 import { emitArticlesChanged } from './services/articleEvents';
+import { describeArticleUrl, normalizeArticleUrl } from './services/urlUtils';
 
 const ONBOARDING_KEY = '@instachat_onboarding_complete';
 const APP_VERSION_KEY = '@instachat_app_version';
-const CURRENT_APP_VERSION = '1.0.6'; // Increment this with each release
+const CURRENT_APP_VERSION = '3.0'; // Increment this with each release
 
-const { SharedIntentModule } = NativeModules;
+type SharedIntentModuleType = {
+  checkPendingShareUrl?: () => Promise<string | null>;
+  checkPendingShareQueue?: () => Promise<string[]>;
+  flushNativeShareDebugEvents?: () => Promise<string[]>;
+  addListener?: (eventName: string) => void;
+  removeListeners?: (count: number) => void;
+};
+
+const { SharedIntentModule } = NativeModules as {
+  SharedIntentModule?: SharedIntentModuleType;
+};
+
+type PendingSharedUrl = {
+  id: string;
+  url: string;
+  originalUrl: string;
+  source: string;
+  queuedAt: number;
+};
 
 // Create a context for shared URL
 interface ShareContextType {
@@ -47,15 +66,38 @@ export const useShare = () => useContext(ShareContext);
 function extractUrlFromDeepLink(deepLink: string): string | null {
   try {
     if (deepLink.startsWith('notif://share')) {
+      const urlParamIndex = deepLink.indexOf('url=');
+      if (urlParamIndex >= 0) {
+        return decodeURIComponent(deepLink.slice(urlParamIndex + 4));
+      }
+    }
+  } catch (error) {
+    try {
       const match = deepLink.match(/[?&]url=([^&]+)/);
       if (match) {
         return decodeURIComponent(match[1]);
       }
+    } catch (fallbackError) {
+      console.log('[App] Error parsing deep link:', fallbackError);
     }
-  } catch (error) {
     console.log('[App] Error parsing deep link:', error);
   }
   return null;
+}
+
+function StartupSplash() {
+  return (
+    <SafeAreaProvider>
+      <View style={styles.startupContainer}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <View style={styles.startupBrand}>
+          <Text style={styles.startupTitle}>NotiF</Text>
+          <Text style={styles.startupSubtitle}>BOOKMARK</Text>
+        </View>
+        <ActivityIndicator size="large" color="#F97316" style={styles.startupSpinner} />
+      </View>
+    </SafeAreaProvider>
+  );
 }
 
 function AppContent() {
@@ -68,6 +110,7 @@ function AppContent() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumArticleCount, setPremiumArticleCount] = useState(0);
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const mainFadeAnim = useRef(new Animated.Value(1)).current;
   const navigationRef = useRef<any>(null);
@@ -75,6 +118,13 @@ function AppContent() {
   // Track URLs being processed to prevent duplicates from race conditions
   const processingUrlsRef = useRef<Set<string>>(new Set());
   const recentlyProcessedRef = useRef<Map<string, number>>(new Map());
+  const pendingSharedUrlsRef = useRef<PendingSharedUrl[]>([]);
+  const shareHandlingReadyRef = useRef(false);
+  const flushingPendingSharesRef = useRef(false);
+  const shareSequenceRef = useRef(0);
+  const showOnboardingRef = useRef<boolean | null>(showOnboarding);
+  const isNavigationReadyRef = useRef(isNavigationReady);
+  const isTransitioningRef = useRef(isTransitioning);
 
   // Track subscription loading state in ref for async access
   const subscriptionLoadingRef = useRef(isSubscriptionLoading);
@@ -87,11 +137,23 @@ function AppContent() {
   }, [isSubscriptionLoading, isPremium]);
 
   useEffect(() => {
+    showOnboardingRef.current = showOnboarding;
+    isNavigationReadyRef.current = isNavigationReady;
+    isTransitioningRef.current = isTransitioning;
+  }, [showOnboarding, isNavigationReady, isTransitioning]);
+
+  useEffect(() => {
     logInfo('App', 'AppContent mounted', {
       hasSharedIntentModule: Boolean(SharedIntentModule),
       isSubscriptionLoading,
     });
   }, [isSubscriptionLoading]);
+
+  useEffect(() => {
+    importNativeShareDebugEvents('appContentMount').catch(error => {
+      logWarn('NativeShare', 'Failed to import native share events on mount', { error });
+    });
+  }, []);
 
   // Check for app update and clear caches if needed
   useEffect(() => {
@@ -117,9 +179,12 @@ function AppContent() {
     const checkOnboarding = async () => {
       try {
         const completed = await AsyncStorage.getItem(ONBOARDING_KEY);
-        setShowOnboarding(completed !== 'true');
+        const shouldShowOnboarding = completed !== 'true';
+        logInfo('App', 'Onboarding state loaded', { shouldShowOnboarding });
+        setShowOnboarding(shouldShowOnboarding);
       } catch (error) {
         console.log('[App] Error checking onboarding:', error);
+        logInfo('App', 'Onboarding state failed open', { error });
         setShowOnboarding(false);
       }
     };
@@ -164,28 +229,56 @@ function AppContent() {
     }
   }, [showOnboarding, isTransitioning, mainFadeAnim]);
 
-  // Shared function to handle saving article from URL
-  const handleSharedUrl = async (url: string) => {
-    // Normalize URL for comparison
-    const normalizedUrl = url.trim().toLowerCase();
+  const getShareReadinessSnapshot = useCallback(() => ({
+    showOnboarding: showOnboardingRef.current,
+    isNavigationReady: isNavigationReadyRef.current,
+    isTransitioning: isTransitioningRef.current,
+    isSubscriptionLoading: subscriptionLoadingRef.current,
+    queueDepth: pendingSharedUrlsRef.current.length,
+    appState: AppState.currentState,
+  }), []);
 
-    // Check if this URL is currently being processed (prevents race condition)
+  // Shared function to handle saving article from URL
+  const handleSharedUrl = useCallback(async (share: PendingSharedUrl) => {
+    const urlDetails = describeArticleUrl(share.url);
+    const normalizedUrl = urlDetails.normalizedUrl.toLowerCase();
+    const queuedMs = Date.now() - share.queuedAt;
+
+    logInfo('SharePipeline', 'Begin processing shared URL', {
+      shareId: share.id,
+      source: share.source,
+      queuedMs,
+      url: urlDetails,
+      readiness: getShareReadinessSnapshot(),
+    });
+
     if (processingUrlsRef.current.has(normalizedUrl)) {
-      console.log('[App] URL already being processed, skipping:', url);
+      logInfo('SharePipeline', 'Skipping shared URL already processing', {
+        shareId: share.id,
+        source: share.source,
+        url: urlDetails,
+      });
       return;
     }
 
-    // Check if this URL was recently processed (within 5 seconds)
     const lastProcessed = recentlyProcessedRef.current.get(normalizedUrl);
     if (lastProcessed && Date.now() - lastProcessed < 5000) {
-      console.log('[App] URL was recently processed, skipping:', url);
+      logInfo('SharePipeline', 'Skipping shared URL processed recently', {
+        shareId: share.id,
+        source: share.source,
+        msSinceProcessed: Date.now() - lastProcessed,
+        url: urlDetails,
+      });
       return;
     }
 
-    // Mark as processing
     processingUrlsRef.current.add(normalizedUrl);
 
-    console.log('[App] Auto-saving shared article:', url);
+    logInfo('SharePipeline', 'Auto-saving shared article', {
+      shareId: share.id,
+      source: share.source,
+      canonicalUrl: urlDetails.normalizedUrl,
+    });
 
     // Wait for subscription status to load before checking (max 3 seconds)
     let waitTime = 0;
@@ -194,10 +287,21 @@ function AppContent() {
       waitTime += 100;
     }
 
+    logInfo('SharePipeline', 'Subscription wait completed', {
+      shareId: share.id,
+      waitTime,
+      isSubscriptionLoading: subscriptionLoadingRef.current,
+      isPremium: isPremiumRef.current,
+    });
+
     // Check subscription before saving (use ref for current value)
     const { articleCount, requiresPremium } = await canSaveArticle(isPremiumRef.current);
     if (requiresPremium) {
-      console.log('[App] Article limit reached, showing premium modal');
+      logWarn('SharePipeline', 'Article limit reached during shared save', {
+        shareId: share.id,
+        articleCount,
+        isPremium: isPremiumRef.current,
+      });
       setPremiumArticleCount(articleCount);
       setShowPremiumModal(true);
       processingUrlsRef.current.delete(normalizedUrl);
@@ -207,11 +311,20 @@ function AppContent() {
     setIsSaving(true);
     try {
       // Extract article (FAST - no AI)
-      const article = await extractAndCreateArticle(url);
+      logInfo('SharePipeline', 'Extracting shared article', {
+        shareId: share.id,
+        canonicalUrl: urlDetails.normalizedUrl,
+      });
+      const article = await extractAndCreateArticle(urlDetails.normalizedUrl);
 
       // Save immediately
       await saveArticle(article);
-      console.log('[App] Article saved instantly:', article.id);
+      logInfo('SharePipeline', 'Shared article saved', {
+        shareId: share.id,
+        articleId: article.id,
+        titleLength: article.title?.length ?? 0,
+        url: describeArticleUrl(article.url),
+      });
 
       // Mark as recently processed
       recentlyProcessedRef.current.set(normalizedUrl, Date.now());
@@ -224,7 +337,15 @@ function AppContent() {
       emitArticlesChanged();
 
       if (navigationRef.current) {
+        logInfo('SharePipeline', 'Navigating after shared save', {
+          shareId: share.id,
+          route: 'Main/Home',
+        });
         navigationRef.current.navigate('Main', { screen: 'Home' });
+      } else {
+        logWarn('SharePipeline', 'Navigation ref missing after shared save', {
+          shareId: share.id,
+        });
       }
 
       // Run AI enhancement in background (non-blocking)
@@ -232,18 +353,34 @@ function AppContent() {
         if (updates) {
           try {
             await updateArticle(article.id, updates);
-            console.log('[App] Article AI-enhanced in background:', article.id);
+            logInfo('SharePipeline', 'Shared article AI-enhanced in background', {
+              shareId: share.id,
+              articleId: article.id,
+            });
             showTransientMessage('AI tags added!');
           } catch (updateError) {
-            console.log('[App] Failed to update with AI data:', updateError);
+            logWarn('SharePipeline', 'Failed to update shared article with AI data', {
+              shareId: share.id,
+              articleId: article.id,
+              error: updateError,
+            });
           }
         }
       }).catch((err) => {
-        console.log('[App] Background AI enhancement error:', err);
+        logWarn('SharePipeline', 'Background AI enhancement error for shared article', {
+          shareId: share.id,
+          articleId: article.id,
+          error: err,
+        });
       });
 
     } catch (error) {
-      console.error('[App] Error auto-saving shared article:', error);
+      logError('SharePipeline', 'Error auto-saving shared article', {
+        shareId: share.id,
+        source: share.source,
+        url: urlDetails,
+        error,
+      });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setIsSaving(false);
 
@@ -251,9 +388,18 @@ function AppContent() {
       if (errorMessage.includes('already saved')) {
         // Also mark as recently processed for duplicates
         recentlyProcessedRef.current.set(normalizedUrl, Date.now());
+        logInfo('SharePipeline', 'Shared article already existed', {
+          shareId: share.id,
+          source: share.source,
+          url: urlDetails,
+        });
         showTransientMessage('Already in your library!');
         emitArticlesChanged();
         if (navigationRef.current) {
+          logInfo('SharePipeline', 'Navigating after duplicate shared save', {
+            shareId: share.id,
+            route: 'Main/Home',
+          });
           navigationRef.current.navigate('Main', { screen: 'Home' });
         }
       } else {
@@ -262,66 +408,238 @@ function AppContent() {
     } finally {
       // Always remove from processing set when done
       processingUrlsRef.current.delete(normalizedUrl);
+      logInfo('SharePipeline', 'Finished shared URL processing', {
+        shareId: share.id,
+        source: share.source,
+        processingCount: processingUrlsRef.current.size,
+      });
     }
-  };
+  }, [getShareReadinessSnapshot]);
+
+  const flushPendingSharedUrls = useCallback(async () => {
+    if (!shareHandlingReadyRef.current || flushingPendingSharesRef.current) {
+      logInfo('SharePipeline', 'Flush skipped because share handling is not ready', {
+        isReady: shareHandlingReadyRef.current,
+        isFlushing: flushingPendingSharesRef.current,
+        readiness: getShareReadinessSnapshot(),
+      });
+      return;
+    }
+
+    flushingPendingSharesRef.current = true;
+    try {
+      logInfo('SharePipeline', 'Flushing pending shared URLs', {
+        pendingCount: pendingSharedUrlsRef.current.length,
+        readiness: getShareReadinessSnapshot(),
+      });
+      while (shareHandlingReadyRef.current && pendingSharedUrlsRef.current.length > 0) {
+        const nextShare = pendingSharedUrlsRef.current.shift();
+        if (nextShare) {
+          await handleSharedUrl(nextShare);
+        }
+      }
+    } finally {
+      flushingPendingSharesRef.current = false;
+      logInfo('SharePipeline', 'Finished flushing pending shared URLs', {
+        pendingCount: pendingSharedUrlsRef.current.length,
+      });
+    }
+  }, [getShareReadinessSnapshot, handleSharedUrl]);
+
+  const enqueueSharedUrl = useCallback((url: string, source: string) => {
+    const urlDetails = describeArticleUrl(url);
+    const normalizedUrl = urlDetails.normalizedUrl.toLowerCase();
+    const isAlreadyQueued = pendingSharedUrlsRef.current.some(
+      queuedShare => normalizeArticleUrl(queuedShare.url).toLowerCase() === normalizedUrl
+    );
+    const lastProcessed = recentlyProcessedRef.current.get(normalizedUrl);
+    const wasRecentlyProcessed = Boolean(lastProcessed && Date.now() - lastProcessed < 5000);
+    const skipReasons = [
+      isAlreadyQueued ? 'alreadyQueued' : null,
+      processingUrlsRef.current.has(normalizedUrl) ? 'alreadyProcessing' : null,
+      wasRecentlyProcessed ? 'recentlyProcessed' : null,
+    ].filter(Boolean);
+
+    if (skipReasons.length > 0) {
+      logInfo('SharePipeline', 'Shared URL already queued or processed, skipping', {
+        source,
+        skipReasons,
+        url: urlDetails,
+        pendingCount: pendingSharedUrlsRef.current.length,
+        readiness: getShareReadinessSnapshot(),
+      });
+      return;
+    }
+
+    shareSequenceRef.current += 1;
+    const share: PendingSharedUrl = {
+      id: `share_${Date.now()}_${shareSequenceRef.current}`,
+      url: urlDetails.normalizedUrl,
+      originalUrl: url,
+      source,
+      queuedAt: Date.now(),
+    };
+
+    pendingSharedUrlsRef.current.push(share);
+    logInfo('SharePipeline', 'Queued shared URL until app is ready', {
+      shareId: share.id,
+      source,
+      url: urlDetails,
+      pendingCount: pendingSharedUrlsRef.current.length,
+      readiness: getShareReadinessSnapshot(),
+    });
+    flushPendingSharedUrls().catch(error => {
+      logError('SharePipeline', 'Error flushing pending shared URLs', { error });
+    });
+  }, [flushPendingSharedUrls, getShareReadinessSnapshot]);
+
+  const canProcessShares = showOnboarding === false && isNavigationReady && !isTransitioning;
+
+  useEffect(() => {
+    shareHandlingReadyRef.current = canProcessShares;
+    if (canProcessShares) {
+      logInfo('SharePipeline', 'Share handling ready', {
+        pendingCount: pendingSharedUrlsRef.current.length,
+        readiness: getShareReadinessSnapshot(),
+      });
+      flushPendingSharedUrls().catch(error => {
+        logError('SharePipeline', 'Error flushing pending shared URLs when ready', { error });
+      });
+    }
+  }, [canProcessShares, flushPendingSharedUrls, getShareReadinessSnapshot]);
 
   // Check for pending share URLs on startup (cold start case) - supports queue
   useEffect(() => {
     if (SharedIntentModule) {
       const checkPending = async () => {
         try {
+          await importNativeShareDebugEvents('beforeStartupPendingShareCheck');
+          logInfo('SharePipeline', 'Checking native pending share queue on startup', {
+            readiness: getShareReadinessSnapshot(),
+            hasQueueMethod: Boolean(SharedIntentModule.checkPendingShareQueue),
+            hasSingleMethod: Boolean(SharedIntentModule.checkPendingShareUrl),
+          });
+
           // First try to get all queued URLs
           const pendingUrls = await SharedIntentModule.checkPendingShareQueue?.();
           if (pendingUrls && Array.isArray(pendingUrls) && pendingUrls.length > 0) {
-            console.log(`[App] Found ${pendingUrls.length} pending share URLs from queue:`, pendingUrls);
-            // Process each URL sequentially
+            logInfo('SharePipeline', 'Found pending share URLs from native queue', {
+              count: pendingUrls.length,
+              urls: pendingUrls.map(describeArticleUrl),
+            });
             for (const url of pendingUrls) {
-              await handleSharedUrl(url);
+              enqueueSharedUrl(url, 'pendingQueue');
             }
+            await importNativeShareDebugEvents('afterStartupPendingQueue');
             return;
           }
 
           // Fallback to single URL check for backward compatibility
-          const pendingUrl = await SharedIntentModule.checkPendingShareUrl();
+          const pendingUrl = await SharedIntentModule.checkPendingShareUrl?.();
           if (pendingUrl) {
-            console.log('[App] Found pending share URL from cold start:', pendingUrl);
-            handleSharedUrl(pendingUrl);
+            logInfo('SharePipeline', 'Found single pending share URL on startup', {
+              url: describeArticleUrl(pendingUrl),
+            });
+            enqueueSharedUrl(pendingUrl, 'pendingSingle');
+          } else {
+            logInfo('SharePipeline', 'No pending share URL on startup', {
+              readiness: getShareReadinessSnapshot(),
+            });
           }
+          await importNativeShareDebugEvents('afterStartupPendingSingle');
         } catch (error) {
-          console.log('[App] Error checking pending share URLs:', error);
+          logError('SharePipeline', 'Error checking pending share URLs', { error });
         }
       };
       // Small delay to ensure app is fully mounted
       setTimeout(checkPending, 500);
     }
-  }, []);
+  }, [enqueueSharedUrl, getShareReadinessSnapshot]);
+
+  // Handle native share events while the app is already running.
+  useEffect(() => {
+    if (!SharedIntentModule) {
+      return;
+    }
+
+    const handleNativeShareEvent = (payload: unknown) => {
+      const url = typeof payload === 'string'
+        ? payload
+        : (payload as { url?: string } | null)?.url;
+
+      logInfo('SharePipeline', 'Native share event received', {
+        platform: Platform.OS,
+        hasUrl: Boolean(url),
+        payloadType: typeof payload,
+        url: url ? describeArticleUrl(url) : undefined,
+      });
+
+      importNativeShareDebugEvents('nativeShareEvent').catch(error => {
+        logWarn('NativeShare', 'Failed to import native events after share event', { error });
+      });
+
+      if (url) {
+        enqueueSharedUrl(url, 'nativeEvent');
+      }
+    };
+
+    const subscription = Platform.OS === 'ios'
+      ? new NativeEventEmitter(SharedIntentModule as any).addListener('onShareIntent', handleNativeShareEvent)
+      : DeviceEventEmitter.addListener('onShareIntent', handleNativeShareEvent);
+
+    logInfo('SharePipeline', 'Native share event listener attached', {
+      platform: Platform.OS,
+    });
+
+    return () => subscription.remove();
+  }, [enqueueSharedUrl]);
 
   // Handle shared URLs via React Native's Linking API (primary path for iOS)
   useEffect(() => {
     // Cold start: check if app was launched from a URL scheme
     Linking.getInitialURL().then((url) => {
       if (url) {
-        console.log('[App] Initial URL from Linking:', url);
+        logInfo('SharePipeline', 'Initial Linking URL received', {
+          deepLink: url,
+          hasEmbeddedArticleUrl: Boolean(extractUrlFromDeepLink(url)),
+        });
         const articleUrl = extractUrlFromDeepLink(url);
         if (articleUrl) {
-          handleSharedUrl(articleUrl);
+          logInfo('SharePipeline', 'Initial Linking URL contained article URL', {
+            url: describeArticleUrl(articleUrl),
+          });
+          enqueueSharedUrl(articleUrl, 'initialUrl');
+        } else {
+          logInfo('SharePipeline', 'Initial Linking URL was an open signal only', {
+            deepLink: url,
+          });
         }
       }
     }).catch((err) => {
-      console.log('[App] Error getting initial URL:', err);
+      logError('SharePipeline', 'Error getting initial URL', { error: err });
     });
 
     // Warm start: listen for URL events from RCTOpenURLNotification
     const subscription = Linking.addEventListener('url', (event) => {
-      console.log('[App] URL event from Linking:', event.url);
+      logInfo('SharePipeline', 'Linking URL event received', {
+        deepLink: event.url,
+        hasEmbeddedArticleUrl: Boolean(extractUrlFromDeepLink(event.url)),
+      });
       const articleUrl = extractUrlFromDeepLink(event.url);
       if (articleUrl) {
-        handleSharedUrl(articleUrl);
+        logInfo('SharePipeline', 'Linking URL event contained article URL', {
+          url: describeArticleUrl(articleUrl),
+        });
+        enqueueSharedUrl(articleUrl, 'linkingEvent');
+      } else {
+        logInfo('SharePipeline', 'Linking URL event was an open signal only', {
+          deepLink: event.url,
+        });
       }
     });
 
     return () => subscription.remove();
-  }, []);
+  }, [enqueueSharedUrl]);
 
   // Fallback: poll for pending URLs when app comes to foreground
   useEffect(() => {
@@ -329,31 +647,34 @@ function AppContent() {
       if (nextAppState === 'active' && SharedIntentModule) {
         setTimeout(async () => {
           try {
-            const pendingUrl = await SharedIntentModule.checkPendingShareUrl();
+            await importNativeShareDebugEvents('beforeForegroundPendingShareCheck');
+            logInfo('SharePipeline', 'Checking native pending share URL on foreground', {
+              readiness: getShareReadinessSnapshot(),
+            });
+            const pendingUrl = await SharedIntentModule.checkPendingShareUrl?.();
             if (pendingUrl) {
-              console.log('[App] Found pending share URL on foreground:', pendingUrl);
-              handleSharedUrl(pendingUrl).catch(err =>
-                console.log('[App] Error handling foreground share URL:', err)
-              );
+              logInfo('SharePipeline', 'Found pending share URL on foreground', {
+                url: describeArticleUrl(pendingUrl),
+              });
+              enqueueSharedUrl(pendingUrl, 'foreground');
+            } else {
+              logInfo('SharePipeline', 'No pending share URL on foreground', {
+                readiness: getShareReadinessSnapshot(),
+              });
             }
+            await importNativeShareDebugEvents('afterForegroundPendingShareCheck');
           } catch (error) {
-            console.log('[App] Error checking pending share URLs on foreground:', error);
+            logError('SharePipeline', 'Error checking pending share URLs on foreground', { error });
           }
         }, 500);
       }
     });
     return () => subscription.remove();
-  }, []);
+  }, [enqueueSharedUrl, getShareReadinessSnapshot]);
 
   // Show loading while checking onboarding status
   if (showOnboarding === null) {
-    return (
-      <SafeAreaProvider>
-        <View style={[styles.loadingContainer, { backgroundColor: '#000000' }]}>
-          <ActivityIndicator size="large" color="#F97316" />
-        </View>
-      </SafeAreaProvider>
-    );
+    return <StartupSplash />;
   }
 
   // Show onboarding for new users
@@ -375,7 +696,13 @@ function AppContent() {
             barStyle={currentColors.background === '#FFFFFF' ? 'dark-content' : 'light-content'}
             backgroundColor={currentColors.background}
           />
-          <NavigationContainer ref={navigationRef}>
+          <NavigationContainer
+            ref={navigationRef}
+            onReady={() => {
+              logInfo('Navigation', 'Navigation container ready');
+              setIsNavigationReady(true);
+            }}
+          >
             <RootNavigator />
           </NavigationContainer>
         </Animated.View>
@@ -438,6 +765,32 @@ function App() {
 }
 
 const styles = StyleSheet.create({
+  startupContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+  },
+  startupBrand: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  startupTitle: {
+    color: '#F97316',
+    fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: 0,
+  },
+  startupSubtitle: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0,
+    marginTop: 4,
+  },
+  startupSpinner: {
+    marginTop: 4,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PlatformType } from '../styles/platformColors';
+import { normalizeArticleUrl } from './urlUtils';
 
 export interface Article {
   id: string;
@@ -91,8 +92,14 @@ const SETTINGS_KEY = 'instachat_settings';
  */
 export const saveArticle = async (article: Article): Promise<void> => {
   try {
+    const normalizedUrl = normalizeArticleUrl(article.url);
+    const articleToSave = {
+      ...article,
+      url: normalizedUrl,
+    };
+
     console.log('[Database] saveArticle called for article ID:', article.id);
-    console.log('[Database] Article URL:', article.url);
+    console.log('[Database] Article URL:', normalizedUrl);
     console.log('[Database] Article title:', article.title);
 
     const existingArticles = await getAllArticles();
@@ -107,7 +114,7 @@ export const saveArticle = async (article: Article): Promise<void> => {
     }
 
     // Check if article with same URL already exists (prevent duplicates)
-    const existsByUrl = existingArticles.find(a => a.url === article.url);
+    const existsByUrl = existingArticles.find(a => normalizeArticleUrl(a.url) === normalizedUrl);
     if (existsByUrl) {
       const errMsg = `Article from this URL already saved (ID: ${existsByUrl.id})`;
       console.warn('[Database] ' + errMsg);
@@ -117,7 +124,7 @@ export const saveArticle = async (article: Article): Promise<void> => {
     console.log('[Database] No duplicates found, proceeding to save...');
 
     // Add to storage
-    const updated = [article, ...existingArticles];
+    const updated = [articleToSave, ...existingArticles];
     console.log('[Database] Total articles after save:', updated.length);
 
     await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(updated));
@@ -590,4 +597,3 @@ export const getFavoriteArticles = async (): Promise<Article[]> => {
     return [];
   }
 };
-

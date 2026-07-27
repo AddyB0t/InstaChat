@@ -38,8 +38,13 @@ type LogFileModuleType = {
   shareTextFile: (fileName: string, contents: string) => Promise<string>;
 };
 
-const { LogFileModule } = NativeModules as {
+type NativeShareDebugModuleType = {
+  flushNativeShareDebugEvents?: () => Promise<string[]>;
+};
+
+const { LogFileModule, SharedIntentModule } = NativeModules as {
   LogFileModule?: LogFileModuleType;
+  SharedIntentModule?: NativeShareDebugModuleType;
 };
 
 const truncateString = (value: string): string => {
@@ -202,6 +207,33 @@ export const logWarn = (scope: string, message: string, details?: unknown) =>
 export const logError = (scope: string, message: string, details?: unknown) =>
   logDevice('error', scope, message, details);
 
+export const importNativeShareDebugEvents = async (reason = 'manual'): Promise<number> => {
+  if (!SharedIntentModule?.flushNativeShareDebugEvents) {
+    return 0;
+  }
+
+  try {
+    const events = await SharedIntentModule.flushNativeShareDebugEvents();
+    if (!Array.isArray(events) || events.length === 0) {
+      return 0;
+    }
+
+    events.forEach((event, index) => {
+      logInfo('NativeShare', event, {
+        importReason: reason,
+        nativeIndex: index + 1,
+        nativeCount: events.length,
+      });
+    });
+    await flushLogs();
+
+    return events.length;
+  } catch (error) {
+    logWarn('NativeShare', 'Failed to import native share debug events', { reason, error });
+    return 0;
+  }
+};
+
 export const installDeviceLogging = () => {
   if (installed) {
     return;
@@ -277,6 +309,7 @@ export const getDeviceLogsText = async (): Promise<string> => {
 };
 
 export const shareDeviceLogs = async () => {
+  await importNativeShareDebugEvents('beforeShareLogs');
   const message = await getDeviceLogsText();
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const fileName = `notif-debug-logs-${timestamp}.txt`;
