@@ -88,15 +88,21 @@ function extractUrlFromDeepLink(deepLink: string): string | null {
 function StartupSplash() {
   return (
     <SafeAreaProvider>
-      <View style={styles.startupContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#000000" />
-        <View style={styles.startupBrand}>
-          <Text style={styles.startupTitle}>NotiF</Text>
-          <Text style={styles.startupSubtitle}>BOOKMARK</Text>
-        </View>
-        <ActivityIndicator size="large" color="#F97316" style={styles.startupSpinner} />
-      </View>
+      <StartupSplashContent />
     </SafeAreaProvider>
+  );
+}
+
+function StartupSplashContent() {
+  return (
+    <View style={styles.startupContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <View style={styles.startupBrand}>
+        <Text style={styles.startupTitle}>NotiF</Text>
+        <Text style={styles.startupSubtitle}>BOOKMARK</Text>
+      </View>
+      <ActivityIndicator size="large" color="#F97316" style={styles.startupSpinner} />
+    </View>
   );
 }
 
@@ -111,6 +117,7 @@ function AppContent() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumArticleCount, setPremiumArticleCount] = useState(0);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const [navigationResetKey, setNavigationResetKey] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const mainFadeAnim = useRef(new Animated.Value(1)).current;
   const navigationRef = useRef<any>(null);
@@ -123,6 +130,7 @@ function AppContent() {
   const flushingPendingSharesRef = useRef(false);
   const shareSequenceRef = useRef(0);
   const appStartAtRef = useRef(Date.now());
+  const navigationRetryCountRef = useRef(0);
   const showOnboardingRef = useRef<boolean | null>(showOnboarding);
   const isNavigationReadyRef = useRef(isNavigationReady);
   const isTransitioningRef = useRef(isTransitioning);
@@ -173,7 +181,13 @@ function AppContent() {
       return;
     }
 
-    const checkpoints = [2500, 5000, 10000].map(delay => setTimeout(() => {
+    const checkpoints = [1000, 2000, 5000, 10000].map(delay => setTimeout(() => {
+      const shouldRetryNavigation =
+        delay >= 2000 &&
+        showOnboardingRef.current === false &&
+        !isNavigationReadyRef.current &&
+        navigationRetryCountRef.current < 1;
+
       logInfo('AppStartup', 'Startup watchdog checkpoint', {
         elapsedMs: Date.now() - appStartAtRef.current,
         checkpointMs: delay,
@@ -182,7 +196,17 @@ function AppContent() {
         isTransitioning: isTransitioningRef.current,
         isSubscriptionLoading: subscriptionLoadingRef.current,
         appState: AppState.currentState,
+        willRetryNavigation: shouldRetryNavigation,
       });
+
+      if (shouldRetryNavigation) {
+        navigationRetryCountRef.current += 1;
+        logWarn('AppStartup', 'Navigation did not become ready; remounting navigation tree', {
+          elapsedMs: Date.now() - appStartAtRef.current,
+          retryCount: navigationRetryCountRef.current,
+        });
+        setNavigationResetKey(current => current + 1);
+      }
     }, delay));
 
     return () => checkpoints.forEach(clearTimeout);
@@ -730,6 +754,7 @@ function AppContent() {
             backgroundColor={currentColors.background}
           />
           <NavigationContainer
+            key={navigationResetKey}
             ref={navigationRef}
             onReady={() => {
               logInfo('Navigation', 'Navigation container ready');
@@ -739,6 +764,12 @@ function AppContent() {
             <RootNavigator />
           </NavigationContainer>
         </Animated.View>
+
+        {!isNavigationReady && (
+          <View style={styles.startupOverlay} pointerEvents="auto">
+            <StartupSplashContent />
+          </View>
+        )}
 
         {/* Loading overlay for auto-save */}
         <Modal
@@ -802,6 +833,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#000000',
+  },
+  startupOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    elevation: 20,
     backgroundColor: '#000000',
   },
   startupBrand: {
