@@ -16,6 +16,7 @@ import {
   Linking,
   TextInput,
   Alert,
+  ActivityIndicator,
   Modal,
   Platform,
   ScrollView,
@@ -49,6 +50,7 @@ import OnboardingTutorial from '../components/OnboardingTutorial';
 import { wp, hp, fp, ms, screenWidth } from '../utils/responsive';
 import { getPlatformConfig, PlatformType } from '../styles/platformColors';
 import { addArticlesChangedListener, emitArticlesChanged } from '../services/articleEvents';
+import { logError, logInfo } from '../services/logger';
 
 type ViewMode = 'stacks' | 'grid' | 'custom';
 type ReadFilter = 'all' | 'read' | 'unread';
@@ -113,6 +115,12 @@ export default function NotifHomeScreen({ navigation }: any) {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const loadArticles = useCallback(async () => {
+    const startedAt = Date.now();
+    logInfo('HomeStartup', 'Loading home articles started', {
+      platformFilter: settings.platformFilter,
+      sortBy: settings.sortBy || 'date',
+    });
+
     try {
       const fetchedArticles = await getAllArticles();
 
@@ -159,8 +167,20 @@ export default function NotifHomeScreen({ navigation }: any) {
       // Load folders
       const allFolders = await getAllFolders();
       setFolders(allFolders);
+      logInfo('HomeStartup', 'Loading home articles completed', {
+        elapsedMs: Date.now() - startedAt,
+        totalArticles: fetchedArticles.length,
+        stackArticles: nonPriority.length,
+        priorityArticles: priority.length,
+        favoriteArticles: favorites.length,
+        folders: allFolders.length,
+      });
     } catch (error) {
       console.error('[NotifHomeScreen] Error loading articles:', error);
+      logError('HomeStartup', 'Loading home articles failed', {
+        elapsedMs: Date.now() - startedAt,
+        error,
+      });
     } finally {
       setLoading(false);
     }
@@ -759,6 +779,7 @@ export default function NotifHomeScreen({ navigation }: any) {
 
   // Check if stack is empty (no unread articles) - used for showing empty state in stacks view only
   const isStackEmpty = !loading && articles.length === 0;
+  const isInitialStackLoading = loading && articles.length === 0 && allArticles.length === 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]} edges={['top', 'left', 'right']}>
@@ -827,7 +848,22 @@ export default function NotifHomeScreen({ navigation }: any) {
 
       {/* Main content based on view mode */}
       {selectedView === 'stacks' ? (
-        isStackEmpty ? (
+        isInitialStackLoading ? (
+          <View style={styles.stacksContainer}>
+            <View style={styles.titleContainer}>
+              <Text style={[styles.appTitle, { color: colors.accent.primary }]}>NotiF</Text>
+              <Text style={[styles.appSubtitle, { color: colors.text.primary }]}>
+                BOOKMARK
+              </Text>
+            </View>
+            <View style={styles.homeLoadingContainer}>
+              <ActivityIndicator size="large" color={colors.accent.primary} />
+              <Text style={[styles.homeLoadingText, { color: colors.text.secondary }]}>
+                Loading your stack...
+              </Text>
+            </View>
+          </View>
+        ) : isStackEmpty ? (
           // Empty state for stacks view - no unread articles
           <View style={styles.stacksContainer}>
             {/* App title - NotiF style - always visible */}
@@ -1935,6 +1971,17 @@ const styles = StyleSheet.create({
   stacksContainer: {
     flex: 1,
     alignItems: 'center',
+  },
+  homeLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: hp(100),
+    gap: hp(12),
+  },
+  homeLoadingText: {
+    fontSize: fp(14),
+    fontWeight: '600',
   },
   titleContainer: {
     marginTop: hp(20),

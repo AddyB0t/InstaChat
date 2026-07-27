@@ -122,6 +122,7 @@ function AppContent() {
   const shareHandlingReadyRef = useRef(false);
   const flushingPendingSharesRef = useRef(false);
   const shareSequenceRef = useRef(0);
+  const appStartAtRef = useRef(Date.now());
   const showOnboardingRef = useRef<boolean | null>(showOnboarding);
   const isNavigationReadyRef = useRef(isNavigationReady);
   const isTransitioningRef = useRef(isTransitioning);
@@ -153,6 +154,38 @@ function AppContent() {
     importNativeShareDebugEvents('appContentMount').catch(error => {
       logWarn('NativeShare', 'Failed to import native share events on mount', { error });
     });
+  }, []);
+
+  useEffect(() => {
+    logInfo('AppStartup', 'Startup state changed', {
+      elapsedMs: Date.now() - appStartAtRef.current,
+      showOnboarding,
+      isNavigationReady,
+      isTransitioning,
+      isSubscriptionLoading,
+      appState: AppState.currentState,
+    });
+  }, [showOnboarding, isNavigationReady, isTransitioning, isSubscriptionLoading]);
+
+  useEffect(() => {
+    const isTestRuntime = typeof (globalThis as { expect?: unknown }).expect === 'function';
+    if (isTestRuntime) {
+      return;
+    }
+
+    const checkpoints = [2500, 5000, 10000].map(delay => setTimeout(() => {
+      logInfo('AppStartup', 'Startup watchdog checkpoint', {
+        elapsedMs: Date.now() - appStartAtRef.current,
+        checkpointMs: delay,
+        showOnboarding: showOnboardingRef.current,
+        isNavigationReady: isNavigationReadyRef.current,
+        isTransitioning: isTransitioningRef.current,
+        isSubscriptionLoading: subscriptionLoadingRef.current,
+        appState: AppState.currentState,
+      });
+    }, delay));
+
+    return () => checkpoints.forEach(clearTimeout);
   }, []);
 
   // Check for app update and clear caches if needed
