@@ -65,6 +65,8 @@ export default function NotifHomeScreen({ navigation }: any) {
     (settings.theme === 'auto' && systemColorScheme === 'dark');
 
   const colors = getThemedColors(isDark);
+  const descriptionSurfaceColor = isDark ? '#343840' : '#EEF0F3';
+  const descriptionPreviewColor = isDark ? '#3B3F46' : '#F1F2F4';
 
   const [articles, setArticles] = useState<Article[]>([]); // All articles for stack view
   const [allArticles, setAllArticles] = useState<Article[]>([]); // All articles for grid view and search
@@ -932,7 +934,7 @@ export default function NotifHomeScreen({ navigation }: any) {
 
             {/* Description Preview Box - below card */}
             <TouchableOpacity
-              style={[styles.notesPreviewBox, { backgroundColor: isDark ? 'rgba(80, 80, 80, 0.6)' : colors.background.secondary }]}
+              style={[styles.notesPreviewBox, { backgroundColor: descriptionPreviewColor }]}
               activeOpacity={visibleCards[0]?.notes ? 0.75 : 1}
               delayLongPress={250}
               onPress={() => visibleCards[0]?.notes && setExpandedNoteArticle(visibleCards[0])}
@@ -1763,8 +1765,7 @@ export default function NotifHomeScreen({ navigation }: any) {
             onPress={() => setExpandedNoteArticle(null)}
           />
           <View
-            style={[styles.noteReaderCard, { backgroundColor: colors.background.primary }]}
-            onStartShouldSetResponder={() => true}
+            style={[styles.noteReaderCard, { backgroundColor: descriptionSurfaceColor }]}
           >
             <Text style={[styles.noteReaderTitle, { color: colors.text.primary }]}>
               Description
@@ -1780,6 +1781,8 @@ export default function NotifHomeScreen({ navigation }: any) {
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
               bounces={true}
+              alwaysBounceVertical={true}
+              keyboardShouldPersistTaps="handled"
             >
               <Text style={[styles.noteReaderText, { color: colors.text.primary }]}>
                 {expandedNoteArticle?.notes}
@@ -2099,21 +2102,25 @@ const styles = StyleSheet.create({
   },
   noteReaderOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(0, 0, 0, 0.42)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: wp(20),
+    paddingHorizontal: wp(18),
+    paddingVertical: hp(28),
   },
   noteReaderDismissLayer: {
     ...StyleSheet.absoluteFillObject,
   },
   noteReaderCard: {
-    width: '92%',
+    width: '94%',
     maxWidth: wp(380),
-    maxHeight: '82%',
-    borderRadius: ms(20),
+    height: '78%',
+    maxHeight: hp(640),
+    minHeight: hp(420),
+    borderRadius: ms(18),
     padding: wp(20),
-    flexShrink: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   noteReaderTitle: {
     fontSize: fp(18),
@@ -2126,11 +2133,12 @@ const styles = StyleSheet.create({
     marginBottom: hp(14),
   },
   noteReaderScroll: {
-    flexShrink: 1,
+    flex: 1,
     marginTop: hp(2),
   },
   noteReaderScrollContent: {
-    paddingBottom: hp(12),
+    paddingBottom: hp(24),
+    flexGrow: 1,
   },
   noteReaderText: {
     fontSize: fp(15),
