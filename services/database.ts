@@ -87,6 +87,55 @@ const FOLDERS_KEY = 'instachat_folders';
 const TAGS_KEY = 'instachat_tags';
 const SETTINGS_KEY = 'instachat_settings';
 
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+);
+
+const isStoredArticle = (value: unknown): value is Article => (
+  isRecord(value) &&
+  typeof value.id === 'string' &&
+  typeof value.url === 'string'
+);
+
+const isStoredFolder = (value: unknown): value is Folder => (
+  isRecord(value) &&
+  typeof value.id === 'string' &&
+  typeof value.name === 'string'
+);
+
+const isStoredTag = (value: unknown): value is Tag => (
+  isRecord(value) &&
+  typeof value.id === 'string' &&
+  typeof value.name === 'string'
+);
+
+const parseStoredArray = <T,>(
+  data: string | null,
+  label: string,
+  isValidEntry: (value: unknown) => value is T
+): T[] => {
+  if (!data) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) {
+      const validEntries = parsed.filter(isValidEntry);
+      if (validEntries.length !== parsed.length) {
+        console.warn(`[Database] Dropped invalid entries from ${label}`);
+      }
+      return validEntries;
+    }
+
+    console.warn(`[Database] Invalid ${label} payload, expected array`);
+  } catch (error) {
+    console.error(`[Database] Error parsing ${label}:`, error);
+  }
+
+  return [];
+};
+
 /**
  * Save article to local storage
  */
@@ -144,7 +193,7 @@ export const saveArticle = async (article: Article): Promise<void> => {
 export const getAllArticles = async (): Promise<Article[]> => {
   try {
     const data = await AsyncStorage.getItem(ARTICLES_KEY);
-    return data ? JSON.parse(data) : [];
+    return parseStoredArray<Article>(data, 'articles', isStoredArticle);
   } catch (error) {
     console.error('[Database] Error getting articles:', error);
     return [];
@@ -308,7 +357,7 @@ export const createFolder = async (name: string): Promise<Folder> => {
 export const getAllFolders = async (): Promise<Folder[]> => {
   try {
     const data = await AsyncStorage.getItem(FOLDERS_KEY);
-    return data ? JSON.parse(data) : [];
+    return parseStoredArray<Folder>(data, 'folders', isStoredFolder);
   } catch (error) {
     console.error('[Database] Error getting folders:', error);
     return [];
@@ -420,7 +469,7 @@ export const createTag = async (name: string): Promise<Tag> => {
 export const getAllTags = async (): Promise<Tag[]> => {
   try {
     const data = await AsyncStorage.getItem(TAGS_KEY);
-    return data ? JSON.parse(data) : [];
+    return parseStoredArray<Tag>(data, 'tags', isStoredTag);
   } catch (error) {
     console.error('[Database] Error getting tags:', error);
     return [];
@@ -455,7 +504,20 @@ const defaultSettings: AppSettings = {
 export const getSettings = async (): Promise<AppSettings> => {
   try {
     const data = await AsyncStorage.getItem(SETTINGS_KEY);
-    return data ? JSON.parse(data) : defaultSettings;
+    if (!data) {
+      return defaultSettings;
+    }
+
+    const parsed = JSON.parse(data);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return {
+        ...defaultSettings,
+        ...parsed,
+      };
+    }
+
+    console.warn('[Database] Invalid settings payload, expected object');
+    return defaultSettings;
   } catch (error) {
     console.error('[Database] Error getting settings:', error);
     return defaultSettings;

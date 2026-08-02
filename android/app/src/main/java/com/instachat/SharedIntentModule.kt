@@ -18,6 +18,7 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
   companion object {
     private var _instance: SharedIntentModule? = null
     private var _pendingShareUrl: String? = null
+    private val _pendingShareQueue = mutableListOf<String>()
 
     @JvmStatic
     fun initialize(module: SharedIntentModule) {
@@ -29,10 +30,26 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
 
     @JvmStatic
     fun setPendingShareUrl(url: String?) {
-      _pendingShareUrl = url
-      Log.d("SharedIntentModule", "Pending share URL set: $url")
+      if (url == null) {
+        _pendingShareUrl = null
+        _pendingShareQueue.clear()
+      } else if (_pendingShareUrl == null) {
+        _pendingShareUrl = url
+      } else {
+        _pendingShareQueue.add(url)
+        if (_pendingShareQueue.size > 50) {
+          _pendingShareQueue.removeAt(0)
+        }
+      }
+
+      val queueDepth = _pendingShareQueue.size + if (_pendingShareUrl == null) 0 else 1
+      Log.d("SharedIntentModule", "Pending share URL queued. queueDepth=$queueDepth url=$url")
       _instance?.reactApplicationContext?.let {
-        ShareDebugLogger.record(it, "SharedIntentModule", "Pending share URL set ${url?.let(ShareDebugLogger::describeUrl) ?: "null"}")
+        ShareDebugLogger.record(
+          it,
+          "SharedIntentModule",
+          "Pending share URL queued queueDepth=$queueDepth ${url?.let(ShareDebugLogger::describeUrl) ?: "null"}"
+        )
       }
     }
 
@@ -41,7 +58,11 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
 
     @JvmStatic
     fun clearPendingShareUrl() {
-      _pendingShareUrl = null
+      _pendingShareUrl = if (_pendingShareQueue.isNotEmpty()) {
+        _pendingShareQueue.removeAt(0)
+      } else {
+        null
+      }
     }
   }
 
@@ -120,7 +141,7 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
     ShareDebugLogger.record(
       reactApplicationContext,
       "SharedIntentModule",
-      "JS called checkPendingShareUrl hasPending=${_pendingShareUrl != null}"
+      "JS called checkPendingShareUrl hasPending=${_pendingShareUrl != null} pendingQueue=${_pendingShareQueue.size}"
     )
     val pendingUrl = _pendingShareUrl
     if (pendingUrl != null) {
@@ -128,7 +149,7 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
       ShareDebugLogger.record(
         reactApplicationContext,
         "SharedIntentModule",
-        "Returning pending share URL ${ShareDebugLogger.describeUrl(pendingUrl)}"
+        "Returning pending share URL remainingQueue=${_pendingShareQueue.size} ${ShareDebugLogger.describeUrl(pendingUrl)}"
       )
       clearPendingShareUrl()
       promise.resolve(pendingUrl)
@@ -143,24 +164,31 @@ class SharedIntentModule(reactContext: ReactApplicationContext) :
     ShareDebugLogger.record(
       reactApplicationContext,
       "SharedIntentModule",
-      "JS called checkPendingShareQueue hasPending=${_pendingShareUrl != null}"
+      "JS called checkPendingShareQueue hasPending=${_pendingShareUrl != null} pendingQueue=${_pendingShareQueue.size}"
     )
 
     val pendingUrl = _pendingShareUrl
+    val urls = Arguments.createArray()
+    var count = 0
+
     if (pendingUrl != null) {
-      clearPendingShareUrl()
-      val urls = Arguments.createArray()
       urls.pushString(pendingUrl)
-      ShareDebugLogger.record(
-        reactApplicationContext,
-        "SharedIntentModule",
-        "Returning Android pending share queue count=1 ${ShareDebugLogger.describeUrl(pendingUrl)}"
-      )
-      promise.resolve(urls)
-    } else {
-      ShareDebugLogger.record(reactApplicationContext, "SharedIntentModule", "Returning Android pending share queue count=0")
-      promise.resolve(Arguments.createArray())
+      count += 1
     }
+
+    _pendingShareQueue.forEach { url ->
+      urls.pushString(url)
+      count += 1
+    }
+    _pendingShareUrl = null
+    _pendingShareQueue.clear()
+
+    ShareDebugLogger.record(
+      reactApplicationContext,
+      "SharedIntentModule",
+      "Returning Android pending share queue count=$count"
+    )
+    promise.resolve(urls)
   }
 
   @ReactMethod

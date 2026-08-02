@@ -29,7 +29,7 @@ const ONBOARDING_KEY = '@instachat_onboarding_complete';
 const APP_VERSION_KEY = '@instachat_app_version';
 const APP_BUILD_MARKER_KEY = '@instachat_app_build_marker';
 const CURRENT_APP_VERSION = '3.0'; // Increment this with each release
-const CURRENT_APP_BUILD_MARKER = '3.0-54-startup-recovery';
+const CURRENT_APP_BUILD_MARKER = '3.0-56-navigation-stability';
 const MAX_NAVIGATION_RECOVERY_ATTEMPTS = 2;
 
 type SharedIntentModuleType = {
@@ -163,10 +163,37 @@ function AppContent() {
   const isNavigationReadyRef = useRef(isNavigationReady);
   const isTransitioningRef = useRef(isTransitioning);
   const shouldRenderNavigationRef = useRef(shouldRenderNavigation);
+  const isMountedRef = useRef(true);
+  const navigationRemountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startupPendingShareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const foregroundShareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track subscription loading state in ref for async access
   const subscriptionLoadingRef = useRef(isSubscriptionLoading);
   const isPremiumRef = useRef(isPremium);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+
+      if (navigationRemountTimerRef.current) {
+        clearTimeout(navigationRemountTimerRef.current);
+        navigationRemountTimerRef.current = null;
+      }
+
+      if (startupPendingShareTimerRef.current) {
+        clearTimeout(startupPendingShareTimerRef.current);
+        startupPendingShareTimerRef.current = null;
+      }
+
+      if (foregroundShareTimerRef.current) {
+        clearTimeout(foregroundShareTimerRef.current);
+        foregroundShareTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -230,7 +257,16 @@ function AppContent() {
     setShouldRenderNavigation(false);
     setNavigationResetKey(current => current + 1);
 
-    setTimeout(() => {
+    if (navigationRemountTimerRef.current) {
+      clearTimeout(navigationRemountTimerRef.current);
+    }
+
+    navigationRemountTimerRef.current = setTimeout(() => {
+      navigationRemountTimerRef.current = null;
+      if (!isMountedRef.current) {
+        return;
+      }
+
       logInfo('AppStartup', 'Rendering navigation subtree after recovery remount', {
         elapsedMs: Date.now() - appStartAtRef.current,
         retryCount: nextRetryCount,
@@ -501,9 +537,9 @@ function AppContent() {
       if (navigationRef.current) {
         logInfo('SharePipeline', 'Navigating after shared save', {
           shareId: share.id,
-          route: 'Main/Home',
+          route: 'Home',
         });
-        navigationRef.current.navigate('Main', { screen: 'Home' });
+        navigationRef.current.navigate('Home');
       } else {
         logWarn('SharePipeline', 'Navigation ref missing after shared save', {
           shareId: share.id,
@@ -560,9 +596,9 @@ function AppContent() {
         if (navigationRef.current) {
           logInfo('SharePipeline', 'Navigating after duplicate shared save', {
             shareId: share.id,
-            route: 'Main/Home',
+            route: 'Home',
           });
-          navigationRef.current.navigate('Main', { screen: 'Home' });
+          navigationRef.current.navigate('Home');
         }
       } else {
         Alert.alert('Error', `Failed to save article: ${errorMessage}`);
@@ -672,50 +708,65 @@ function AppContent() {
 
   // Check for pending share URLs on startup (cold start case) - supports queue
   useEffect(() => {
-    if (SharedIntentModule) {
-      const checkPending = async () => {
-        try {
-          await importNativeShareDebugEvents('beforeStartupPendingShareCheck');
-          logInfo('SharePipeline', 'Checking native pending share queue on startup', {
-            readiness: getShareReadinessSnapshot(),
-            hasQueueMethod: Boolean(SharedIntentModule.checkPendingShareQueue),
-            hasSingleMethod: Boolean(SharedIntentModule.checkPendingShareUrl),
-          });
-
-          // First try to get all queued URLs
-          const pendingUrls = await SharedIntentModule.checkPendingShareQueue?.();
-          if (pendingUrls && Array.isArray(pendingUrls) && pendingUrls.length > 0) {
-            logInfo('SharePipeline', 'Found pending share URLs from native queue', {
-              count: pendingUrls.length,
-              urls: pendingUrls.map(describeArticleUrl),
-            });
-            for (const url of pendingUrls) {
-              enqueueSharedUrl(url, 'pendingQueue');
-            }
-            await importNativeShareDebugEvents('afterStartupPendingQueue');
-            return;
-          }
-
-          // Fallback to single URL check for backward compatibility
-          const pendingUrl = await SharedIntentModule.checkPendingShareUrl?.();
-          if (pendingUrl) {
-            logInfo('SharePipeline', 'Found single pending share URL on startup', {
-              url: describeArticleUrl(pendingUrl),
-            });
-            enqueueSharedUrl(pendingUrl, 'pendingSingle');
-          } else {
-            logInfo('SharePipeline', 'No pending share URL on startup', {
-              readiness: getShareReadinessSnapshot(),
-            });
-          }
-          await importNativeShareDebugEvents('afterStartupPendingSingle');
-        } catch (error) {
-          logError('SharePipeline', 'Error checking pending share URLs', { error });
-        }
-      };
-      // Small delay to ensure app is fully mounted
-      setTimeout(checkPending, 500);
+    if (!SharedIntentModule) {
+      return;
     }
+
+    const checkPending = async () => {
+      try {
+        await importNativeShareDebugEvents('beforeStartupPendingShareCheck');
+        logInfo('SharePipeline', 'Checking native pending share queue on startup', {
+          readiness: getShareReadinessSnapshot(),
+          hasQueueMethod: Boolean(SharedIntentModule.checkPendingShareQueue),
+          hasSingleMethod: Boolean(SharedIntentModule.checkPendingShareUrl),
+        });
+
+        // First try to get all queued URLs
+        const pendingUrls = await SharedIntentModule.checkPendingShareQueue?.();
+        if (pendingUrls && Array.isArray(pendingUrls) && pendingUrls.length > 0) {
+          logInfo('SharePipeline', 'Found pending share URLs from native queue', {
+            count: pendingUrls.length,
+            urls: pendingUrls.map(describeArticleUrl),
+          });
+          for (const url of pendingUrls) {
+            enqueueSharedUrl(url, 'pendingQueue');
+          }
+          await importNativeShareDebugEvents('afterStartupPendingQueue');
+          return;
+        }
+
+        // Fallback to single URL check for backward compatibility
+        const pendingUrl = await SharedIntentModule.checkPendingShareUrl?.();
+        if (pendingUrl) {
+          logInfo('SharePipeline', 'Found single pending share URL on startup', {
+            url: describeArticleUrl(pendingUrl),
+          });
+          enqueueSharedUrl(pendingUrl, 'pendingSingle');
+        } else {
+          logInfo('SharePipeline', 'No pending share URL on startup', {
+            readiness: getShareReadinessSnapshot(),
+          });
+        }
+        await importNativeShareDebugEvents('afterStartupPendingSingle');
+      } catch (error) {
+        logError('SharePipeline', 'Error checking pending share URLs', { error });
+      }
+    };
+
+    const timer = setTimeout(() => {
+      startupPendingShareTimerRef.current = null;
+      if (isMountedRef.current) {
+        checkPending();
+      }
+    }, 500);
+    startupPendingShareTimerRef.current = timer;
+
+    return () => {
+      if (startupPendingShareTimerRef.current === timer) {
+        startupPendingShareTimerRef.current = null;
+      }
+      clearTimeout(timer);
+    };
   }, [enqueueSharedUrl, getShareReadinessSnapshot]);
 
   // Handle native share events while the app is already running.
@@ -758,8 +809,14 @@ function AppContent() {
 
   // Handle shared URLs via React Native's Linking API (primary path for iOS)
   useEffect(() => {
+    let isActive = true;
+
     // Cold start: check if app was launched from a URL scheme
     Linking.getInitialURL().then((url) => {
+      if (!isActive) {
+        return;
+      }
+
       if (url) {
         logInfo('SharePipeline', 'Initial Linking URL received', {
           deepLink: url,
@@ -778,6 +835,10 @@ function AppContent() {
         }
       }
     }).catch((err) => {
+      if (!isActive) {
+        return;
+      }
+
       logError('SharePipeline', 'Error getting initial URL', { error: err });
     });
 
@@ -800,14 +861,30 @@ function AppContent() {
       }
     });
 
-    return () => subscription.remove();
+    return () => {
+      isActive = false;
+      subscription.remove();
+    };
   }, [enqueueSharedUrl]);
 
   // Fallback: poll for pending URLs when app comes to foreground
   useEffect(() => {
+    const clearForegroundShareTimer = () => {
+      if (foregroundShareTimerRef.current) {
+        clearTimeout(foregroundShareTimerRef.current);
+        foregroundShareTimerRef.current = null;
+      }
+    };
+
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active' && SharedIntentModule) {
-        setTimeout(async () => {
+        clearForegroundShareTimer();
+        foregroundShareTimerRef.current = setTimeout(async () => {
+          foregroundShareTimerRef.current = null;
+          if (!isMountedRef.current) {
+            return;
+          }
+
           try {
             await importNativeShareDebugEvents('beforeForegroundPendingShareCheck');
             logInfo('SharePipeline', 'Checking native pending share URL on foreground', {
@@ -831,7 +908,11 @@ function AppContent() {
         }, 500);
       }
     });
-    return () => subscription.remove();
+
+    return () => {
+      subscription.remove();
+      clearForegroundShareTimer();
+    };
   }, [enqueueSharedUrl, getShareReadinessSnapshot]);
 
   // Show loading while checking onboarding status

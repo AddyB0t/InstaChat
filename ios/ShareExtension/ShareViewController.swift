@@ -202,12 +202,22 @@ class ShareViewController: UIViewController {
             let hadSingle = userDefaults.string(forKey: sharedKey) != nil
             recordShareDebug("Saving URL to app group existingQueueCount=\(existingQueueCount) hadSingle=\(hadSingle) \(urlDebugSummary(urlString))")
 
-            // Save URL for the app to pick up
-            userDefaults.set(urlString, forKey: sharedKey)
+            var queue = userDefaults.stringArray(forKey: sharedQueueKey) ?? []
+            if let existingSingle = userDefaults.string(forKey: sharedKey) {
+                queue.append(existingSingle)
+                userDefaults.removeObject(forKey: sharedKey)
+            }
+            queue.append(urlString)
+            if queue.count > 50 {
+                queue = Array(queue.suffix(50))
+            }
+
+            // Save URL for the app to pick up. Queue is the primary path; ShareKey is legacy fallback.
+            userDefaults.set(queue, forKey: sharedQueueKey)
             userDefaults.set(Date().timeIntervalSince1970, forKey: "ShareTimestamp")
             userDefaults.synchronize()
             logger.info("Saved shared URL to app group")
-            recordShareDebug("Saved shared URL to app group")
+            recordShareDebug("Saved shared URL to app group queueCount=\(queue.count)")
 
             // Show brief success then open the app
             showSuccessAndOpenApp(urlString)

@@ -9,6 +9,57 @@ import { Bundle } from './database';
 const BUNDLES_KEY = 'instachat_bundles';
 const CURRENT_BUNDLE_KEY = 'instachat_current_bundle';
 
+const isBundle = (value: unknown): value is Bundle => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as Partial<Bundle>;
+  return typeof candidate.id === 'string' && Array.isArray(candidate.articleIds);
+};
+
+const parseStoredBundles = (data: string | null, label: string): Bundle[] => {
+  if (!data) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) {
+      const validBundles = parsed.filter(isBundle);
+      if (validBundles.length !== parsed.length) {
+        console.warn(`[BundleService] Dropped invalid entries from ${label}`);
+      }
+      return validBundles;
+    }
+
+    console.warn(`[BundleService] Invalid ${label} payload, expected array`);
+  } catch (error) {
+    console.error(`[BundleService] Error parsing ${label}:`, error);
+  }
+
+  return [];
+};
+
+const parseStoredBundle = (data: string | null, label: string): Bundle | null => {
+  if (!data) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(data);
+    if (isBundle(parsed)) {
+      return parsed;
+    }
+
+    console.warn(`[BundleService] Invalid ${label} payload, expected object`);
+  } catch (error) {
+    console.error(`[BundleService] Error parsing ${label}:`, error);
+  }
+
+  return null;
+};
+
 /**
  * Get all bundles
  */
@@ -18,7 +69,7 @@ export const getAllBundles = async (): Promise<Bundle[]> => {
     if (!bundlesJson) {
       return [];
     }
-    return JSON.parse(bundlesJson);
+    return parseStoredBundles(bundlesJson, 'bundles');
   } catch (error) {
     console.error('[BundleService] Error getting bundles:', error);
     return [];
@@ -34,7 +85,7 @@ export const getCurrentBundle = async (): Promise<Bundle | null> => {
     if (!bundleJson) {
       return null;
     }
-    return JSON.parse(bundleJson);
+    return parseStoredBundle(bundleJson, 'current bundle');
   } catch (error) {
     console.error('[BundleService] Error getting current bundle:', error);
     return null;

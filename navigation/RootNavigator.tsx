@@ -147,6 +147,7 @@ export function RootNavigator() {
 
   return (
     <Tab.Navigator
+      detachInactiveScreens={false}
       screenOptions={{
         tabBarActiveTintColor: colors.accent.primary,
         tabBarInactiveTintColor: colors.text.tertiary,

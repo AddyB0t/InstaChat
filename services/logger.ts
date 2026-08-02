@@ -130,6 +130,25 @@ const createEntry = (
   },
 });
 
+const parseStoredLogs = (raw: string | null): DeviceLogEntry[] => {
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed as DeviceLogEntry[];
+    }
+
+    originalConsole.warn('[Logger] Stored device logs were not an array; resetting log buffer');
+  } catch (error) {
+    originalConsole.warn('[Logger] Stored device logs were corrupted; resetting log buffer', error);
+  }
+
+  return [];
+};
+
 const flushLogs = async () => {
   if (flushing) {
     return;
@@ -143,7 +162,7 @@ const flushLogs = async () => {
     }
 
     const existingRaw = await AsyncStorage.getItem(DEVICE_LOGS_KEY);
-    const existing = existingRaw ? JSON.parse(existingRaw) as DeviceLogEntry[] : [];
+    const existing = parseStoredLogs(existingRaw);
     const merged = [...existing, ...batch].slice(-MAX_LOG_ENTRIES);
     await AsyncStorage.setItem(DEVICE_LOGS_KEY, JSON.stringify(merged));
   } catch (error) {
@@ -282,7 +301,7 @@ export const getDeviceLogs = async (): Promise<DeviceLogEntry[]> => {
   await flushLogs();
   try {
     const raw = await AsyncStorage.getItem(DEVICE_LOGS_KEY);
-    return raw ? JSON.parse(raw) as DeviceLogEntry[] : [];
+    return parseStoredLogs(raw);
   } catch (error) {
     originalConsole.warn('[Logger] Failed to read device logs', error);
     return [];
