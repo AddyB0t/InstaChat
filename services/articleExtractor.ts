@@ -1132,12 +1132,3 @@ export const formatDate = (dateString: string): string => {
     return 'Unknown date';
   }
 };
-
-/**
- * Format content for display (first N characters)
- */
-export const formatContent = (content: string, maxLength: number = 200): string => {
-  if (!content) return '';
-  if (content.length <= maxLength) return content;
-  return content.substring(0, maxLength) + '...';
-};

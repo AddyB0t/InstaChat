@@ -29,7 +29,7 @@ const ONBOARDING_KEY = '@instachat_onboarding_complete';
 const APP_VERSION_KEY = '@instachat_app_version';
 const APP_BUILD_MARKER_KEY = '@instachat_app_build_marker';
 const CURRENT_APP_VERSION = '3.0'; // Increment this with each release
-const CURRENT_APP_BUILD_MARKER = '3.0-56-navigation-stability';
+const CURRENT_APP_BUILD_MARKER = '3.0-57-cleanup-stability';
 const MAX_NAVIGATION_RECOVERY_ATTEMPTS = 2;
 
 type SharedIntentModuleType = {

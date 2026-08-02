@@ -48,20 +48,6 @@ export interface Folder {
   articleCount: number;
 }
 
-export interface Tag {
-  id: string;
-  name: string;
-  createdAt: string;
-  articleCount: number;
-}
-
-export interface Bundle {
-  id: string;
-  articleIds: string[];
-  createdAt: string;
-  temporary: boolean; // Auto-clears after viewing
-}
-
 export interface AppSettings {
   theme: 'auto' | 'light' | 'dark';
   fontSize: 'small' | 'medium' | 'large';
@@ -84,7 +70,6 @@ export interface AppSettings {
 
 const ARTICLES_KEY = 'instachat_articles';
 const FOLDERS_KEY = 'instachat_folders';
-const TAGS_KEY = 'instachat_tags';
 const SETTINGS_KEY = 'instachat_settings';
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
@@ -98,12 +83,6 @@ const isStoredArticle = (value: unknown): value is Article => (
 );
 
 const isStoredFolder = (value: unknown): value is Folder => (
-  isRecord(value) &&
-  typeof value.id === 'string' &&
-  typeof value.name === 'string'
-);
-
-const isStoredTag = (value: unknown): value is Tag => (
   isRecord(value) &&
   typeof value.id === 'string' &&
   typeof value.name === 'string'
@@ -230,24 +209,6 @@ export const deleteArticle = async (id: string | number): Promise<void> => {
 };
 
 /**
- * Search articles by title or content
- */
-export const searchArticles = async (query: string): Promise<Article[]> => {
-  try {
-    const articles = await getAllArticles();
-    const lowercaseQuery = query.toLowerCase();
-
-    return articles.filter(a =>
-      a.title.toLowerCase().includes(lowercaseQuery) ||
-      a.content.toLowerCase().includes(lowercaseQuery)
-    );
-  } catch (error) {
-    console.error('[Database] Error searching articles:', error);
-    return [];
-  }
-};
-
-/**
  * Update article
  */
 export const updateArticle = async (id: string | number, updates: Partial<Article>): Promise<Article | null> => {
@@ -276,39 +237,6 @@ export const updateArticle = async (id: string | number, updates: Partial<Articl
 };
 
 /**
- * Update article with AI enhancement results
- */
-export const updateArticleWithAiEnhancement = async (
-  id: string,
-  aiSummary: string,
-  aiKeyPoints: string[],
-  aiTags: string[],
-  aiCategory: string,
-  aiSentiment: 'positive' | 'neutral' | 'negative',
-  readingTimeMinutes: number,
-  platform?: PlatformType,
-  platformColor?: string
-): Promise<Article | null> => {
-  try {
-    console.log('[Database] Updating article with AI enhancement:', id);
-    return await updateArticle(id, {
-      aiEnhanced: true,
-      aiSummary,
-      aiKeyPoints,
-      aiTags,
-      aiCategory,
-      aiSentiment,
-      readingTimeMinutes,
-      platform,
-      platformColor,
-    });
-  } catch (error) {
-    console.error('[Database] Error updating article with AI enhancement:', error);
-    throw error;
-  }
-};
-
-/**
  * Get article count
  */
 export const getArticleCount = async (): Promise<number> => {
@@ -318,19 +246,6 @@ export const getArticleCount = async (): Promise<number> => {
   } catch (error) {
     console.error('[Database] Error getting article count:', error);
     return 0;
-  }
-};
-
-/**
- * Clear all articles
- */
-export const clearAllArticles = async (): Promise<void> => {
-  try {
-    await AsyncStorage.removeItem(ARTICLES_KEY);
-    console.log('[Database] All articles cleared');
-  } catch (error) {
-    console.error('[Database] Error clearing articles:', error);
-    throw error;
   }
 };
 
@@ -446,48 +361,6 @@ export const updateFolder = async (id: string, updates: Partial<Folder>): Promis
   }
 };
 
-// ===== TAGS =====
-
-export const createTag = async (name: string): Promise<Tag> => {
-  try {
-    const tags = await getAllTags();
-    const newTag: Tag = {
-      id: `tag_${Date.now()}`,
-      name,
-      createdAt: new Date().toISOString(),
-      articleCount: 0,
-    };
-    await AsyncStorage.setItem(TAGS_KEY, JSON.stringify([newTag, ...tags]));
-    console.log('[Database] Tag created:', newTag.id);
-    return newTag;
-  } catch (error) {
-    console.error('[Database] Error creating tag:', error);
-    throw error;
-  }
-};
-
-export const getAllTags = async (): Promise<Tag[]> => {
-  try {
-    const data = await AsyncStorage.getItem(TAGS_KEY);
-    return parseStoredArray<Tag>(data, 'tags', isStoredTag);
-  } catch (error) {
-    console.error('[Database] Error getting tags:', error);
-    return [];
-  }
-};
-
-export const deleteTag = async (id: string): Promise<void> => {
-  try {
-    const tags = await getAllTags();
-    const filtered = tags.filter(t => t.id !== id);
-    await AsyncStorage.setItem(TAGS_KEY, JSON.stringify(filtered));
-    console.log('[Database] Tag deleted:', id);
-  } catch (error) {
-    console.error('[Database] Error deleting tag:', error);
-    throw error;
-  }
-};
-
 // ===== SETTINGS =====
 
 const defaultSettings: AppSettings = {
@@ -534,116 +407,6 @@ export const updateSettings = async (updates: Partial<AppSettings>): Promise<App
   } catch (error) {
     console.error('[Database] Error updating settings:', error);
     throw error;
-  }
-};
-
-/**
- * Add tags to multiple articles
- */
-export const addTagsToArticles = async (articleIds: string[], tagsToAdd: string[]): Promise<number> => {
-  try {
-    const articles = await getAllArticles();
-    let updatedCount = 0;
-
-    const updatedArticles = articles.map(article => {
-      if (articleIds.includes(article.id)) {
-        // Merge existing tags with new tags (avoid duplicates)
-        const existingTags = article.tags || [];
-        const mergedTags = Array.from(new Set([...existingTags, ...tagsToAdd]));
-        updatedCount++;
-        return { ...article, tags: mergedTags };
-      }
-      return article;
-    });
-
-    await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(updatedArticles));
-    console.log('[Database] Tags added to', updatedCount, 'articles');
-    return updatedCount;
-  } catch (error) {
-    console.error('[Database] Error adding tags to articles:', error);
-    throw error;
-  }
-};
-
-/**
- * Add tags to all articles
- */
-export const addTagsToAllArticles = async (tagsToAdd: string[]): Promise<number> => {
-  try {
-    const articles = await getAllArticles();
-    const articleIds = articles.map(a => a.id);
-    return await addTagsToArticles(articleIds, tagsToAdd);
-  } catch (error) {
-    console.error('[Database] Error adding tags to all articles:', error);
-    throw error;
-  }
-};
-
-/**
- * Get articles by tag name
- */
-export const getArticlesByTag = async (tagName: string): Promise<Article[]> => {
-  try {
-    const articles = await getAllArticles();
-    return articles.filter(article =>
-      article.tags?.includes(tagName) || false
-    );
-  } catch (error) {
-    console.error('[Database] Error getting articles by tag:', error);
-    return [];
-  }
-};
-
-/**
- * Get all unique user tags from articles
- */
-export const getAllUserTags = async (): Promise<string[]> => {
-  try {
-    const articles = await getAllArticles();
-    const allTags = new Set<string>();
-    articles.forEach(article => {
-      article.tags?.forEach(tag => allTags.add(tag));
-    });
-    return Array.from(allTags);
-  } catch (error) {
-    console.error('[Database] Error getting user tags:', error);
-    return [];
-  }
-};
-
-/**
- * Get tag statistics (tag name -> article count)
- */
-export const getTagStats = async (): Promise<{name: string; count: number}[]> => {
-  try {
-    const articles = await getAllArticles();
-    const tagCounts = new Map<string, number>();
-
-    articles.forEach(article => {
-      article.tags?.forEach(tag => {
-        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-      });
-    });
-
-    return Array.from(tagCounts.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-  } catch (error) {
-    console.error('[Database] Error getting tag stats:', error);
-    return [];
-  }
-};
-
-/**
- * Get all bookmarked articles (Priority)
- */
-export const getBookmarkedArticles = async (): Promise<Article[]> => {
-  try {
-    const articles = await getAllArticles();
-    return articles.filter(article => article.isBookmarked === true);
-  } catch (error) {
-    console.error('[Database] Error getting bookmarked articles:', error);
-    return [];
   }
 };
 

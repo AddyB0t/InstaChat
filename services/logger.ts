@@ -214,9 +214,6 @@ export const logDevice = (
   persistEntry(entry);
 };
 
-export const logDebug = (scope: string, message: string, details?: unknown) =>
-  logDevice('debug', scope, message, details);
-
 export const logInfo = (scope: string, message: string, details?: unknown) =>
   logDevice('info', scope, message, details);
 
