@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, createContext, useState, useContext, useCallback } from 'react';
-import { StatusBar, NativeModules, Alert, View, ActivityIndicator, Modal, Text, StyleSheet, Animated, AppState, Linking, useColorScheme, DeviceEventEmitter, NativeEventEmitter, Platform } from 'react-native';
+import { StatusBar, NativeModules, Alert, View, ActivityIndicator, Modal, Text, StyleSheet, Animated, AppState, Linking, useColorScheme, DeviceEventEmitter, NativeEventEmitter, Platform, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GluestackUIProvider } from '@gluestack-ui/themed';
@@ -21,13 +21,16 @@ import PremiumModal from './components/PremiumModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import FeedbackToast from './components/FeedbackToast';
 import { showTransientMessage } from './services/feedback';
-import { importNativeShareDebugEvents, logError, logInfo, logWarn } from './services/logger';
+import { importNativeShareDebugEvents, logError, logInfo, logWarn, shareDeviceLogs } from './services/logger';
 import { emitArticlesChanged } from './services/articleEvents';
 import { describeArticleUrl, normalizeArticleUrl } from './services/urlUtils';
 
 const ONBOARDING_KEY = '@instachat_onboarding_complete';
 const APP_VERSION_KEY = '@instachat_app_version';
+const APP_BUILD_MARKER_KEY = '@instachat_app_build_marker';
 const CURRENT_APP_VERSION = '3.0'; // Increment this with each release
+const CURRENT_APP_BUILD_MARKER = '3.0-54-startup-recovery';
+const MAX_NAVIGATION_RECOVERY_ATTEMPTS = 2;
 
 type SharedIntentModuleType = {
   checkPendingShareUrl?: () => Promise<string | null>;
@@ -93,7 +96,17 @@ function StartupSplash() {
   );
 }
 
-function StartupSplashContent() {
+type StartupSplashContentProps = {
+  showRecoveryActions?: boolean;
+  onRetry?: () => void;
+  onShareLogs?: () => void;
+};
+
+function StartupSplashContent({
+  showRecoveryActions = false,
+  onRetry,
+  onShareLogs,
+}: StartupSplashContentProps) {
   return (
     <View style={styles.startupContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
@@ -102,6 +115,19 @@ function StartupSplashContent() {
         <Text style={styles.startupSubtitle}>BOOKMARK</Text>
       </View>
       <ActivityIndicator size="large" color="#F97316" style={styles.startupSpinner} />
+      {showRecoveryActions && (
+        <View style={styles.startupRecovery}>
+          <Text style={styles.startupRecoveryText}>Still starting</Text>
+          <View style={styles.startupRecoveryActions}>
+            <TouchableOpacity style={styles.startupRecoveryButton} onPress={onRetry}>
+              <Text style={styles.startupRecoveryButtonText}>Retry</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.startupRecoveryButtonSecondary} onPress={onShareLogs}>
+              <Text style={styles.startupRecoveryButtonText}>Share logs</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -118,6 +144,8 @@ function AppContent() {
   const [premiumArticleCount, setPremiumArticleCount] = useState(0);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const [navigationResetKey, setNavigationResetKey] = useState(0);
+  const [shouldRenderNavigation, setShouldRenderNavigation] = useState(true);
+  const [showStartupRecoveryActions, setShowStartupRecoveryActions] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const mainFadeAnim = useRef(new Animated.Value(1)).current;
   const navigationRef = useRef<any>(null);
@@ -134,6 +162,7 @@ function AppContent() {
   const showOnboardingRef = useRef<boolean | null>(showOnboarding);
   const isNavigationReadyRef = useRef(isNavigationReady);
   const isTransitioningRef = useRef(isTransitioning);
+  const shouldRenderNavigationRef = useRef(shouldRenderNavigation);
 
   // Track subscription loading state in ref for async access
   const subscriptionLoadingRef = useRef(isSubscriptionLoading);
@@ -149,7 +178,8 @@ function AppContent() {
     showOnboardingRef.current = showOnboarding;
     isNavigationReadyRef.current = isNavigationReady;
     isTransitioningRef.current = isTransitioning;
-  }, [showOnboarding, isNavigationReady, isTransitioning]);
+    shouldRenderNavigationRef.current = shouldRenderNavigation;
+  }, [showOnboarding, isNavigationReady, isTransitioning, shouldRenderNavigation]);
 
   useEffect(() => {
     logInfo('App', 'AppContent mounted', {
@@ -171,9 +201,62 @@ function AppContent() {
       isNavigationReady,
       isTransitioning,
       isSubscriptionLoading,
+      shouldRenderNavigation,
+      navigationResetKey,
       appState: AppState.currentState,
     });
-  }, [showOnboarding, isNavigationReady, isTransitioning, isSubscriptionLoading]);
+  }, [showOnboarding, isNavigationReady, isTransitioning, isSubscriptionLoading, shouldRenderNavigation, navigationResetKey]);
+
+  const forceNavigationRemount = useCallback((reason: string, checkpointMs?: number) => {
+    const nextRetryCount = navigationRetryCountRef.current + 1;
+    navigationRetryCountRef.current = nextRetryCount;
+    shareHandlingReadyRef.current = false;
+    isNavigationReadyRef.current = false;
+
+    logWarn('AppStartup', 'Navigation did not become ready; remounting navigation subtree', {
+      elapsedMs: Date.now() - appStartAtRef.current,
+      checkpointMs,
+      reason,
+      retryCount: nextRetryCount,
+      showOnboarding: showOnboardingRef.current,
+      isSubscriptionLoading: subscriptionLoadingRef.current,
+      appState: AppState.currentState,
+      hadNavigationRef: Boolean(navigationRef.current),
+      navigationRefReady: Boolean(navigationRef.current?.isReady?.()),
+    });
+
+    navigationRef.current = null;
+    setIsNavigationReady(false);
+    setShouldRenderNavigation(false);
+    setNavigationResetKey(current => current + 1);
+
+    setTimeout(() => {
+      logInfo('AppStartup', 'Rendering navigation subtree after recovery remount', {
+        elapsedMs: Date.now() - appStartAtRef.current,
+        retryCount: nextRetryCount,
+        reason,
+      });
+      setShouldRenderNavigation(true);
+    }, 50);
+  }, []);
+
+  const handleStartupRetry = useCallback(() => {
+    setShowStartupRecoveryActions(false);
+    forceNavigationRemount('manualStartupRetry');
+  }, [forceNavigationRemount]);
+
+  const handleShareStartupLogs = useCallback(() => {
+    logInfo('AppStartup', 'Sharing logs from startup recovery screen', {
+      elapsedMs: Date.now() - appStartAtRef.current,
+      showOnboarding: showOnboardingRef.current,
+      isNavigationReady: isNavigationReadyRef.current,
+      isSubscriptionLoading: subscriptionLoadingRef.current,
+      appState: AppState.currentState,
+    });
+    shareDeviceLogs().catch(error => {
+      logError('AppStartup', 'Failed to share logs from startup recovery screen', { error });
+    });
+  }, []);
 
   useEffect(() => {
     const isTestRuntime = typeof (globalThis as { expect?: unknown }).expect === 'function';
@@ -182,50 +265,72 @@ function AppContent() {
     }
 
     const checkpoints = [1000, 2000, 5000, 10000].map(delay => setTimeout(() => {
+      const navigationRefReady = Boolean(navigationRef.current?.isReady?.());
       const shouldRetryNavigation =
         delay >= 2000 &&
         showOnboardingRef.current === false &&
         !isNavigationReadyRef.current &&
-        navigationRetryCountRef.current < 1;
+        AppState.currentState === 'active' &&
+        navigationRetryCountRef.current < MAX_NAVIGATION_RECOVERY_ATTEMPTS;
+      const shouldShowRecoveryActions =
+        delay >= 5000 &&
+        showOnboardingRef.current === false &&
+        !isNavigationReadyRef.current;
 
       logInfo('AppStartup', 'Startup watchdog checkpoint', {
         elapsedMs: Date.now() - appStartAtRef.current,
         checkpointMs: delay,
         showOnboarding: showOnboardingRef.current,
         isNavigationReady: isNavigationReadyRef.current,
+        shouldRenderNavigation: shouldRenderNavigationRef.current,
         isTransitioning: isTransitioningRef.current,
         isSubscriptionLoading: subscriptionLoadingRef.current,
         appState: AppState.currentState,
+        navigationRetryCount: navigationRetryCountRef.current,
+        hadNavigationRef: Boolean(navigationRef.current),
+        navigationRefReady,
         willRetryNavigation: shouldRetryNavigation,
+        willShowRecoveryActions: shouldShowRecoveryActions,
       });
 
       if (shouldRetryNavigation) {
-        navigationRetryCountRef.current += 1;
-        logWarn('AppStartup', 'Navigation did not become ready; remounting navigation tree', {
-          elapsedMs: Date.now() - appStartAtRef.current,
-          retryCount: navigationRetryCountRef.current,
-        });
-        setNavigationResetKey(current => current + 1);
+        forceNavigationRemount('startupWatchdog', delay);
+      }
+
+      if (shouldShowRecoveryActions) {
+        setShowStartupRecoveryActions(true);
       }
     }, delay));
 
     return () => checkpoints.forEach(clearTimeout);
-  }, []);
+  }, [forceNavigationRemount]);
 
   // Check for app update and clear caches if needed
   useEffect(() => {
     const checkAppVersion = async () => {
       try {
         const storedVersion = await AsyncStorage.getItem(APP_VERSION_KEY);
-        if (storedVersion !== CURRENT_APP_VERSION) {
-          console.log(`[App] App updated from ${storedVersion || 'unknown'} to ${CURRENT_APP_VERSION}, clearing caches...`);
+        const storedBuildMarker = await AsyncStorage.getItem(APP_BUILD_MARKER_KEY);
+        if (
+          storedVersion !== CURRENT_APP_VERSION ||
+          storedBuildMarker !== CURRENT_APP_BUILD_MARKER
+        ) {
+          logInfo('App', 'App version/build marker changed', {
+            fromVersion: storedVersion || 'unknown',
+            toVersion: CURRENT_APP_VERSION,
+            fromBuildMarker: storedBuildMarker || 'unknown',
+            toBuildMarker: CURRENT_APP_BUILD_MARKER,
+          });
           // Don't clear everything - preserve user data like onboarding status
           // Just update the version marker
-          await AsyncStorage.setItem(APP_VERSION_KEY, CURRENT_APP_VERSION);
-          console.log('[App] Version marker updated');
+          await AsyncStorage.multiSet([
+            [APP_VERSION_KEY, CURRENT_APP_VERSION],
+            [APP_BUILD_MARKER_KEY, CURRENT_APP_BUILD_MARKER],
+          ]);
+          logInfo('App', 'Version/build marker updated');
         }
       } catch (error) {
-        console.log('[App] Error checking app version:', error);
+        logWarn('App', 'Error checking app version/build marker', { error });
       }
     };
     checkAppVersion();
@@ -753,21 +858,32 @@ function AppContent() {
             barStyle={currentColors.background === '#FFFFFF' ? 'dark-content' : 'light-content'}
             backgroundColor={currentColors.background}
           />
-          <NavigationContainer
-            key={navigationResetKey}
-            ref={navigationRef}
-            onReady={() => {
-              logInfo('Navigation', 'Navigation container ready');
-              setIsNavigationReady(true);
-            }}
-          >
-            <RootNavigator />
-          </NavigationContainer>
+          {shouldRenderNavigation && (
+            <NavigationContainer
+              key={navigationResetKey}
+              ref={navigationRef}
+              onReady={() => {
+                logInfo('Navigation', 'Navigation container ready', {
+                  elapsedMs: Date.now() - appStartAtRef.current,
+                  navigationResetKey,
+                  retryCount: navigationRetryCountRef.current,
+                });
+                setIsNavigationReady(true);
+                setShowStartupRecoveryActions(false);
+              }}
+            >
+              <RootNavigator />
+            </NavigationContainer>
+          )}
         </Animated.View>
 
         {!isNavigationReady && (
           <View style={styles.startupOverlay} pointerEvents="auto">
-            <StartupSplashContent />
+            <StartupSplashContent
+              showRecoveryActions={showStartupRecoveryActions}
+              onRetry={handleStartupRetry}
+              onShareLogs={handleShareStartupLogs}
+            />
           </View>
         )}
 
@@ -860,6 +976,39 @@ const styles = StyleSheet.create({
   },
   startupSpinner: {
     marginTop: 4,
+  },
+  startupRecovery: {
+    alignItems: 'center',
+    marginTop: 28,
+    paddingHorizontal: 24,
+  },
+  startupRecoveryText: {
+    color: '#D4D4D4',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 14,
+  },
+  startupRecoveryActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  startupRecoveryButton: {
+    backgroundColor: '#F97316',
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  startupRecoveryButtonSecondary: {
+    borderColor: '#404040',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  startupRecoveryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
   loadingContainer: {
     flex: 1,
