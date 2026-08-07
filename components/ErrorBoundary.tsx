@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { logError, shareDeviceLogs } from '../services/logger';
+import { logError } from '../services/logger';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -35,12 +35,6 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBounda
     this.setState({ hasError: false, message: undefined });
   };
 
-  private handleShareLogs = () => {
-    shareDeviceLogs().catch(error => {
-      logError('ErrorBoundary', 'Failed to share logs', error);
-    });
-  };
-
   render() {
     if (!this.state.hasError) {
       return this.props.children;
@@ -55,9 +49,6 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBounda
         <View style={styles.actions}>
           <TouchableOpacity style={styles.primaryButton} onPress={this.handleRetry}>
             <Text style={styles.primaryButtonText}>Try again</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={this.handleShareLogs}>
-            <Text style={styles.secondaryButtonText}>Share logs</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -98,18 +89,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  secondaryButton: {
-    borderColor: '#404040',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  secondaryButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',

@@ -16,16 +16,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   static var pendingShareQueue: [String] = []
   private let logger = Logger(subsystem: "com.notif.bookmark", category: "AppDelegate")
   private let appGroupId = "group.com.notif.bookmark"
-  private let shareDebugEventsKey = "ShareDebugEvents"
-  private let maxShareDebugEvents = 1000
 
   func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     logger.info("didFinishLaunchingWithOptions")
-    let launchOptionKeys = launchOptions?.keys.map { $0.rawValue }.joined(separator: ",") ?? ""
-    recordShareDebug("didFinishLaunchingWithOptions launchOptionsKeys=\(launchOptionKeys)")
 
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
@@ -58,7 +54,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
   @objc func applicationDidBecomeActive() {
     logger.info("applicationDidBecomeActive")
-    recordShareDebug("applicationDidBecomeActive pendingSingle=\(AppDelegate.pendingShareUrl != nil) pendingQueue=\(AppDelegate.pendingShareQueue.count)")
     // Check for shared URL when app comes to foreground
     _ = checkForSharedUrl()
   }
@@ -70,26 +65,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
     logger.info("openURL received: \(url.absoluteString, privacy: .private)")
-    recordShareDebug("openURL received \(urlDebugSummary(url.absoluteString))")
 
     if url.scheme == "notif" && url.host == "share" {
       let queuedFromAppGroup = checkForSharedUrl()
       let alreadyQueuedShare = AppDelegate.pendingShareUrl != nil || !AppDelegate.pendingShareQueue.isEmpty
-      recordShareDebug("openURL share signal queuedFromAppGroup=\(queuedFromAppGroup) alreadyQueuedShare=\(alreadyQueuedShare)")
+      logger.info("openURL share signal queuedFromAppGroup=\(queuedFromAppGroup, privacy: .public) alreadyQueuedShare=\(alreadyQueuedShare, privacy: .public)")
 
       if !queuedFromAppGroup,
          !alreadyQueuedShare,
          let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
          let queryItems = components.queryItems,
          let urlParam = queryItems.first(where: { $0.name == "url" })?.value {
-        recordShareDebug("openURL using embedded url parameter \(urlDebugSummary(urlParam))")
         handleSharedUrl(urlParam)
-      } else {
-        recordShareDebug("openURL did not use embedded url parameter")
       }
 
       // Forward to React Native's Linking module (primary path)
-      recordShareDebug("Posting RCTOpenURLNotification to React Native")
       NotificationCenter.default.post(
         name: NSNotification.Name("RCTOpenURLNotification"),
         object: nil,
@@ -103,21 +93,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   // Check for shared URL from UserDefaults (app group)
   private func checkForSharedUrl() -> Bool {
     logger.debug("Checking app group for pending share URLs")
-    recordShareDebug("Checking app group for pending share URLs")
 
     let sharedKey = "ShareKey"
     let sharedQueueKey = "ShareQueue"
 
     guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
       logger.error("Unable to open app group UserDefaults")
-      recordShareDebug("Unable to open app group UserDefaults")
       return false
     }
 
     // First, check for queued URLs (multiple shares)
     if let queue = userDefaults.stringArray(forKey: sharedQueueKey), !queue.isEmpty {
       logger.info("Found queued share URLs: \(queue.count, privacy: .public)")
-      recordShareDebug("Found queued share URLs count=\(queue.count)")
       // Clear the queue
       userDefaults.removeObject(forKey: sharedQueueKey)
       userDefaults.removeObject(forKey: sharedKey)
@@ -125,7 +112,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
       // Process all URLs in queue
       for url in queue {
-        recordShareDebug("Queue URL moved to JS bridge \(urlDebugSummary(url))")
         handleSharedUrl(url)
       }
       return true
@@ -134,14 +120,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // Fallback: check single URL for backward compatibility
     if let sharedUrl = userDefaults.string(forKey: sharedKey) {
       logger.info("Found single pending share URL")
-      recordShareDebug("Found single pending share URL \(urlDebugSummary(sharedUrl))")
       userDefaults.removeObject(forKey: sharedKey)
       userDefaults.synchronize()
       handleSharedUrl(sharedUrl)
       return true
     }
 
-    recordShareDebug("No pending share URL in app group")
     return false
   }
 
@@ -155,33 +139,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     let queueDepth = AppDelegate.pendingShareQueue.count + (AppDelegate.pendingShareUrl == nil ? 0 : 1)
     logger.info("Queued shared URL for JS bridge. queueDepth=\(queueDepth, privacy: .public)")
-    recordShareDebug("Queued shared URL for JS bridge queueDepth=\(queueDepth) \(urlDebugSummary(url))")
-  }
-
-  private func recordShareDebug(_ message: String) {
-    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
-      logger.error("Unable to open app group UserDefaults for diagnostics")
-      return
-    }
-
-    let timestamp = ISO8601DateFormatter().string(from: Date())
-    var events = userDefaults.stringArray(forKey: shareDebugEventsKey) ?? []
-    events.append("\(timestamp) [AppDelegate] \(message)")
-    if events.count > maxShareDebugEvents {
-      events = Array(events.suffix(maxShareDebugEvents))
-    }
-    userDefaults.set(events, forKey: shareDebugEventsKey)
-    userDefaults.synchronize()
-  }
-
-  private func urlDebugSummary(_ urlString: String) -> String {
-    let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let components = URLComponents(string: trimmed) else {
-      return "url=\(trimmed) length=\(trimmed.count) parse=failed"
-    }
-
-    let queryKeys = components.queryItems?.map { $0.name }.joined(separator: ",") ?? ""
-    return "url=\(trimmed) length=\(trimmed.count) host=\(components.host ?? "") path=\(components.path) queryKeys=\(queryKeys)"
   }
 }
 

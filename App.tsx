@@ -21,7 +21,7 @@ import PremiumModal from './components/PremiumModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import FeedbackToast from './components/FeedbackToast';
 import { showTransientMessage } from './services/feedback';
-import { importNativeShareDebugEvents, logError, logInfo, logWarn, shareDeviceLogs } from './services/logger';
+import { logError, logInfo, logWarn } from './services/logger';
 import { emitArticlesChanged } from './services/articleEvents';
 import { describeArticleUrl, normalizeArticleUrl } from './services/urlUtils';
 
@@ -29,13 +29,12 @@ const ONBOARDING_KEY = '@instachat_onboarding_complete';
 const APP_VERSION_KEY = '@instachat_app_version';
 const APP_BUILD_MARKER_KEY = '@instachat_app_build_marker';
 const CURRENT_APP_VERSION = '3.0'; // Increment this with each release
-const CURRENT_APP_BUILD_MARKER = '3.0-57-cleanup-stability';
+const CURRENT_APP_BUILD_MARKER = '3.0-58-remove-log-export';
 const MAX_NAVIGATION_RECOVERY_ATTEMPTS = 2;
 
 type SharedIntentModuleType = {
   checkPendingShareUrl?: () => Promise<string | null>;
   checkPendingShareQueue?: () => Promise<string[]>;
-  flushNativeShareDebugEvents?: () => Promise<string[]>;
   addListener?: (eventName: string) => void;
   removeListeners?: (count: number) => void;
 };
@@ -99,13 +98,11 @@ function StartupSplash() {
 type StartupSplashContentProps = {
   showRecoveryActions?: boolean;
   onRetry?: () => void;
-  onShareLogs?: () => void;
 };
 
 function StartupSplashContent({
   showRecoveryActions = false,
   onRetry,
-  onShareLogs,
 }: StartupSplashContentProps) {
   return (
     <View style={styles.startupContainer}>
@@ -121,9 +118,6 @@ function StartupSplashContent({
           <View style={styles.startupRecoveryActions}>
             <TouchableOpacity style={styles.startupRecoveryButton} onPress={onRetry}>
               <Text style={styles.startupRecoveryButtonText}>Retry</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.startupRecoveryButtonSecondary} onPress={onShareLogs}>
-              <Text style={styles.startupRecoveryButtonText}>Share logs</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -216,12 +210,6 @@ function AppContent() {
   }, [isSubscriptionLoading]);
 
   useEffect(() => {
-    importNativeShareDebugEvents('appContentMount').catch(error => {
-      logWarn('NativeShare', 'Failed to import native share events on mount', { error });
-    });
-  }, []);
-
-  useEffect(() => {
     logInfo('AppStartup', 'Startup state changed', {
       elapsedMs: Date.now() - appStartAtRef.current,
       showOnboarding,
@@ -280,19 +268,6 @@ function AppContent() {
     setShowStartupRecoveryActions(false);
     forceNavigationRemount('manualStartupRetry');
   }, [forceNavigationRemount]);
-
-  const handleShareStartupLogs = useCallback(() => {
-    logInfo('AppStartup', 'Sharing logs from startup recovery screen', {
-      elapsedMs: Date.now() - appStartAtRef.current,
-      showOnboarding: showOnboardingRef.current,
-      isNavigationReady: isNavigationReadyRef.current,
-      isSubscriptionLoading: subscriptionLoadingRef.current,
-      appState: AppState.currentState,
-    });
-    shareDeviceLogs().catch(error => {
-      logError('AppStartup', 'Failed to share logs from startup recovery screen', { error });
-    });
-  }, []);
 
   useEffect(() => {
     const isTestRuntime = typeof (globalThis as { expect?: unknown }).expect === 'function';
@@ -714,7 +689,6 @@ function AppContent() {
 
     const checkPending = async () => {
       try {
-        await importNativeShareDebugEvents('beforeStartupPendingShareCheck');
         logInfo('SharePipeline', 'Checking native pending share queue on startup', {
           readiness: getShareReadinessSnapshot(),
           hasQueueMethod: Boolean(SharedIntentModule.checkPendingShareQueue),
@@ -731,7 +705,6 @@ function AppContent() {
           for (const url of pendingUrls) {
             enqueueSharedUrl(url, 'pendingQueue');
           }
-          await importNativeShareDebugEvents('afterStartupPendingQueue');
           return;
         }
 
@@ -747,7 +720,6 @@ function AppContent() {
             readiness: getShareReadinessSnapshot(),
           });
         }
-        await importNativeShareDebugEvents('afterStartupPendingSingle');
       } catch (error) {
         logError('SharePipeline', 'Error checking pending share URLs', { error });
       }
@@ -785,10 +757,6 @@ function AppContent() {
         hasUrl: Boolean(url),
         payloadType: typeof payload,
         url: url ? describeArticleUrl(url) : undefined,
-      });
-
-      importNativeShareDebugEvents('nativeShareEvent').catch(error => {
-        logWarn('NativeShare', 'Failed to import native events after share event', { error });
       });
 
       if (url) {
@@ -886,7 +854,6 @@ function AppContent() {
           }
 
           try {
-            await importNativeShareDebugEvents('beforeForegroundPendingShareCheck');
             logInfo('SharePipeline', 'Checking native pending share URL on foreground', {
               readiness: getShareReadinessSnapshot(),
             });
@@ -901,7 +868,6 @@ function AppContent() {
                 readiness: getShareReadinessSnapshot(),
               });
             }
-            await importNativeShareDebugEvents('afterForegroundPendingShareCheck');
           } catch (error) {
             logError('SharePipeline', 'Error checking pending share URLs on foreground', { error });
           }
@@ -963,7 +929,6 @@ function AppContent() {
             <StartupSplashContent
               showRecoveryActions={showStartupRecoveryActions}
               onRetry={handleStartupRetry}
-              onShareLogs={handleShareStartupLogs}
             />
           </View>
         )}
@@ -1075,13 +1040,6 @@ const styles = StyleSheet.create({
   },
   startupRecoveryButton: {
     backgroundColor: '#F97316',
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  startupRecoveryButtonSecondary: {
-    borderColor: '#404040',
-    borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 18,
     paddingVertical: 12,
