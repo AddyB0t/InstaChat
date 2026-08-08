@@ -11,8 +11,8 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
-def appVersionCode = (project.findProperty("versionCode") ?: "26").toInteger()
-def appVersionName = (project.findProperty("versionName") ?: "3.0").toString()
+def appVersionCode = (project.findProperty("versionCode") ?: System.getenv("ANDROID_VERSION_CODE") ?: "26").toInteger()
+def appVersionName = (project.findProperty("versionName") ?: System.getenv("ANDROID_VERSION_NAME") ?: "3.0").toString()
 
 /**
  * This is the configuration block to customize your React Native Android app.

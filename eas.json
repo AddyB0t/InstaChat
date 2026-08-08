@@ -1,0 +1,37 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "android-preview": {
+      "distribution": "internal",
+      "env": {
+        "ANDROID_VERSION_CODE": "26",
+        "ANDROID_VERSION_NAME": "3.0"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "android-production": {
+      "distribution": "store",
+      "env": {
+        "ANDROID_VERSION_CODE": "26",
+        "ANDROID_VERSION_NAME": "3.0"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "android-production": {
+      "android": {
+        "applicationId": "com.instachat",
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
+  }
+}
