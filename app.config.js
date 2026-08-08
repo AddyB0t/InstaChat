@@ -10,6 +10,9 @@ module.exports = {
     versionCode: androidVersionCode,
   },
   extra: {
+    eas: {
+      projectId: 'f26dd166-0fdb-47de-97eb-4cbbee547f95',
+    },
     buildPipeline: {
       android: 'eas',
       ios: 'codemagic',
