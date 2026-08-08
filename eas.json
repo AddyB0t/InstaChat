@@ -28,7 +28,7 @@
   "submit": {
     "android-production": {
       "android": {
-        "applicationId": "com.instachat",
+        "applicationId": "com.addybot.notifbookmark",
         "track": "internal",
         "releaseStatus": "draft"
       }

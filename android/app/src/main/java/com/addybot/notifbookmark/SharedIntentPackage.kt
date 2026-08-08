@@ -1,4 +1,4 @@
-package com.instachat
+package com.addybot.notifbookmark
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

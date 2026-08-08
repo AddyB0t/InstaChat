@@ -1,4 +1,4 @@
-package com.instachat
+package com.addybot.notifbookmark
 
 import android.util.Log
 import com.facebook.react.bridge.Arguments

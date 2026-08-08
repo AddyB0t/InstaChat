@@ -1,6 +1,22 @@
 pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
-extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
+def projectRoot = settings.layout.rootDirectory.dir("../")
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+  ex.autolinkLibrariesFromCommand(
+    ["npx", "@react-native-community/cli", "config"],
+    projectRoot.asFile,
+    projectRoot.files(
+      "yarn.lock",
+      "package-lock.json",
+      "package.json",
+      "react-native.config.js",
+      "app.config.js",
+      "app.json",
+      "android/app/build.gradle",
+      "android/app/src/main/AndroidManifest.xml"
+    )
+  )
+}
 rootProject.name = 'InstaChat'
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')

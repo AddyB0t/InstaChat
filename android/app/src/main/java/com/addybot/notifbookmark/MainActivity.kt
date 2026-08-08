@@ -1,4 +1,4 @@
-package com.instachat
+package com.addybot.notifbookmark
 
 import android.content.Intent
 import android.os.Bundle

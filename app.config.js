@@ -6,7 +6,7 @@ module.exports = {
   slug: 'notif-bookmark',
   version: androidVersionName,
   android: {
-    package: 'com.instachat',
+    package: 'com.addybot.notifbookmark',
     versionCode: androidVersionCode,
   },
   extra: {

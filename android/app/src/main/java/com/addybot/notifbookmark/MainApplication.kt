@@ -1,4 +1,4 @@
-package com.instachat
+package com.addybot.notifbookmark
 
 import android.app.Application
 import com.facebook.react.PackageList
